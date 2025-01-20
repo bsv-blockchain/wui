@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
     Box,
     Typography,
     Paper,
     Button,
     TextField,
+    Divider,
     Checkbox,
     FormControlLabel,
     Stack,
@@ -12,45 +13,86 @@ import {
     ListItem,
     ListItemText,
     Pagination,
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogActions
+    Grid
 } from '@mui/material';
-
 import { useWallet } from '../contexts/WalletContext';
+
+interface ActionInput {
+    outpoint: string;
+    unlockingScript?: string;
+    unlockingScriptLength?: number;
+    inputDescription: string;
+    sequenceNumber?: number;
+}
+
+interface ActionOutput {
+    lockingScript: string;
+    satoshis: number;
+    outputDescription: string;
+    basket?: string;
+    customInstructions?: string;
+    tags?: string[];
+}
 
 function ActionsPage() {
     const { wallet } = useWallet();
 
-    const [description, setDescription] = useState('An example action');
+    /** CREATE ACTION FORM */
+    const [description, setDescription] = useState('Example Action');
+
+    // Inputs array
+    const [inputs, setInputs] = useState<ActionInput[]>([]);
+    const [tempInput, setTempInput] = useState<ActionInput>({
+        outpoint: '',
+        inputDescription: ''
+    });
+
+    // Outputs array
+    const [outputs, setOutputs] = useState<ActionOutput[]>([]);
+    const [tempOutput, setTempOutput] = useState<ActionOutput>({
+        lockingScript: '',
+        satoshis: 1000,
+        outputDescription: ''
+    });
+
+    // Options
+    const [signAndProcess, setSignAndProcess] = useState(true);
+    const [acceptDelayedBroadcast, setAcceptDelayedBroadcast] = useState(true);
+    const [returnTXIDOnly, setReturnTXIDOnly] = useState(false);
+    const [noSend, setNoSend] = useState(false);
+    const [labels, setLabels] = useState('');
+    const [lockTime, setLockTime] = useState<number | undefined>(undefined);
+    const [version, setVersion] = useState<number | undefined>(undefined);
+
+    const [transactionResult, setTransactionResult] = useState<any>(null);
+
+    // For listing actions
     const [actions, setActions] = useState<any[]>([]);
     const [actionsPage, setActionsPage] = useState(1);
     const [totalActions, setTotalActions] = useState(0);
-    const [includeLabels, setIncludeLabels] = useState(false);
-    const [transactionResult, setTransactionResult] = useState<any>(null);
 
-    // For internalizing
-    const [internalizeOpen, setInternalizeOpen] = useState(false);
-    const [internalizeTx, setInternalizeTx] = useState('');
-    const [internalizeOutputs, setInternalizeOutputs] = useState('');
+    /** SIGN ACTION FORM */
+    const [signReference, setSignReference] = useState('');
+    const [signSpends, setSignSpends] = useState<Record<string, any>>({});
+    // For convenience, let's just do a JSON field that user can type in:
+    const [spendsJson, setSpendsJson] = useState('{}');
 
     useEffect(() => {
-        if (!wallet) return;
-        listActions(1);
+        if (wallet) {
+            listActions(1);
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [wallet]);
 
-    const listActions = async (page: number) => {
+    async function listActions(page: number) {
         if (!wallet) return;
         try {
-            // In a real wallet, you'd pass offset = (page-1)*limit, etc.
             const resp = await wallet.listActions({
-                labels: [], // or filter with labels
+                labels: [],
                 labelQueryMode: 'any',
-                includeLabels,
-                includeInputs: false,
-                includeOutputs: false,
+                includeLabels: true,
+                includeInputs: true,
+                includeOutputs: true,
                 limit: 5,
                 offset: (page - 1) * 5
             });
@@ -59,16 +101,56 @@ function ActionsPage() {
         } catch (err) {
             console.error(err);
         }
+    }
+
+    const handleAddInput = () => {
+        if (!tempInput.outpoint || !tempInput.inputDescription) return;
+        setInputs([...inputs, { ...tempInput }]);
+        setTempInput({ outpoint: '', inputDescription: '' });
+    };
+
+    const handleAddOutput = () => {
+        if (!tempOutput.lockingScript || !tempOutput.outputDescription) return;
+        setOutputs([...outputs, { ...tempOutput }]);
+        setTempOutput({
+            lockingScript: '',
+            satoshis: 1000,
+            outputDescription: ''
+        });
     };
 
     const handleCreateAction = async () => {
         if (!wallet) return;
         try {
+            const labelsArr = labels
+                ? labels.split(',').map((l) => l.trim()).filter(Boolean)
+                : [];
             const resp = await wallet.createAction({
                 description,
-                // Minimal example: no inputs, no outputs
+                inputs: inputs.map((inp) => ({
+                    outpoint: inp.outpoint,
+                    unlockingScript: inp.unlockingScript || undefined,
+                    unlockingScriptLength: inp.unlockingScriptLength || undefined,
+                    inputDescription: inp.inputDescription,
+                    sequenceNumber: inp.sequenceNumber
+                })),
+                outputs: outputs.map((out) => ({
+                    lockingScript: out.lockingScript,
+                    satoshis: out.satoshis,
+                    outputDescription: out.outputDescription,
+                    basket: out.basket,
+                    customInstructions: out.customInstructions,
+                    tags: out.tags
+                })),
+                lockTime: lockTime !== undefined ? lockTime : undefined,
+                version: version !== undefined ? version : undefined,
+                labels: labelsArr,
                 options: {
-                    signAndProcess: true
+                    signAndProcess,
+                    acceptDelayedBroadcast,
+                    returnTXIDOnly,
+                    noSend
+                    // if you want to handle knownTxids, trustSelf, etc., add them
                 }
             });
             setTransactionResult(resp);
@@ -79,21 +161,23 @@ function ActionsPage() {
         }
     };
 
+    // Sign Action
     const handleSignAction = async () => {
-        if (!wallet || !transactionResult?.signableTransaction) return;
-        const { reference } = transactionResult.signableTransaction;
+        if (!wallet) return;
         try {
+            const parsedSpends = JSON.parse(spendsJson);
             const resp = await wallet.signAction({
-                reference,
-                spends: {}
+                reference: signReference,
+                spends: parsedSpends
+                // Additional options can be appended if needed
             });
-            console.log('Signed transaction:', resp);
             setTransactionResult(resp);
         } catch (err) {
             console.error(err);
         }
     };
 
+    // Abort Action
     const handleAbortAction = async () => {
         if (!wallet || !transactionResult?.signableTransaction) return;
         const { reference } = transactionResult.signableTransaction;
@@ -107,70 +191,189 @@ function ActionsPage() {
         }
     };
 
-    const handleOpenInternalize = () => {
-        setInternalizeOpen(true);
-    };
-
-    const handleCloseInternalize = () => {
-        setInternalizeOpen(false);
-    };
-
-    const handleInternalize = async () => {
-        if (!wallet) return;
-        const outputsParsed = JSON.parse(internalizeOutputs || '[]');
-        try {
-            const resp = await wallet.internalizeAction({
-                tx: parseHexString(internalizeTx),
-                outputs: outputsParsed,
-                description: 'Manually internalized tx'
-            });
-            console.log('Internalize result:', resp);
-            setInternalizeOpen(false);
-        } catch (err) {
-            console.error(err);
-        }
-    };
-
-    function parseHexString(hex: string): number[] {
-        // quick parse
-        const clean = hex.replace(/^0x/, '').replace(/[^0-9a-fA-F]/g, '');
-        const result: number[] = [];
-        for (let i = 0; i < clean.length; i += 2) {
-            result.push(parseInt(clean.substr(i, 2), 16));
-        }
-        return result;
-    }
-
     return (
         <Box>
             <Typography variant="h4" gutterBottom>Actions</Typography>
-            <Paper sx={{ p: 2, mb: 2 }}>
-                <Typography variant="h6">Create a Simple Action</Typography>
-                <Stack direction="row" spacing={2} alignItems="center" sx={{ mt: 2 }}>
+
+            {/** CREATE ACTION SECTION */}
+            <Paper sx={{ p: 2, mb: 4 }}>
+                <Typography variant="h6" gutterBottom>Create a New Action</Typography>
+
+                <Grid container spacing={2}>
+                    <Grid item xs={12} sm={6}>
+                        <TextField
+                            fullWidth
+                            label="Description"
+                            value={description}
+                            onChange={(e) => setDescription(e.target.value)}
+                        />
+                    </Grid>
+                    <Grid item xs={12} sm={3}>
+                        <TextField
+                            fullWidth
+                            label="LockTime"
+                            type="number"
+                            value={lockTime || ''}
+                            onChange={(e) => setLockTime(e.target.value ? parseInt(e.target.value, 10) : undefined)}
+                        />
+                    </Grid>
+                    <Grid item xs={12} sm={3}>
+                        <TextField
+                            fullWidth
+                            label="Version"
+                            type="number"
+                            value={version || ''}
+                            onChange={(e) => setVersion(e.target.value ? parseInt(e.target.value, 10) : undefined)}
+                        />
+                    </Grid>
+                </Grid>
+
+                <Stack direction="row" spacing={2} mt={2}>
+                    <TextField
+                        label="Labels (comma-separated)"
+                        value={labels}
+                        onChange={(e) => setLabels(e.target.value)}
+                        fullWidth
+                    />
+                </Stack>
+
+                <Divider sx={{ my: 2 }} />
+
+                <Typography variant="subtitle1">Inputs</Typography>
+                {inputs.map((inp, idx) => (
+                    <Box
+                        key={idx}
+                        sx={{
+                            backgroundColor: '#fafafa',
+                            p: 1,
+                            mb: 1,
+                            border: '1px solid #ccc',
+                            borderRadius: 1
+                        }}
+                    >
+                        <strong>{inp.outpoint}</strong> – {inp.inputDescription}
+                        {inp.unlockingScript && <div>Unlocking Script: {inp.unlockingScript}</div>}
+                    </Box>
+                ))}
+
+                <Stack direction="row" spacing={2} mt={1}>
+                    <TextField
+                        label="Outpoint (txid.index)"
+                        value={tempInput.outpoint}
+                        onChange={(e) => setTempInput({ ...tempInput, outpoint: e.target.value })}
+                    />
                     <TextField
                         label="Description"
-                        value={description}
-                        onChange={(e) => setDescription(e.target.value)}
+                        value={tempInput.inputDescription}
+                        onChange={(e) => setTempInput({ ...tempInput, inputDescription: e.target.value })}
                     />
-                    <Button variant="contained" onClick={handleCreateAction}>
-                        Create & Process
+                    <Button variant="outlined" onClick={handleAddInput}>
+                        Add Input
                     </Button>
                 </Stack>
+
+                <Divider sx={{ my: 2 }} />
+
+                <Typography variant="subtitle1">Outputs</Typography>
+                {outputs.map((out, idx) => (
+                    <Box
+                        key={idx}
+                        sx={{
+                            backgroundColor: '#fafafa',
+                            p: 1,
+                            mb: 1,
+                            border: '1px solid #ccc',
+                            borderRadius: 1
+                        }}
+                    >
+                        <strong>{out.lockingScript}</strong> – {out.outputDescription}, {out.satoshis} satoshis
+                        {out.basket && <div>Basket: {out.basket}</div>}
+                        {out.tags && <div>Tags: {out.tags.join(', ')}</div>}
+                    </Box>
+                ))}
+                <Stack direction="row" spacing={2} mt={1} flexWrap="wrap">
+                    <TextField
+                        label="Locking Script"
+                        sx={{ minWidth: 220 }}
+                        value={tempOutput.lockingScript}
+                        onChange={(e) => setTempOutput({ ...tempOutput, lockingScript: e.target.value })}
+                    />
+                    <TextField
+                        label="Satoshis"
+                        type="number"
+                        value={tempOutput.satoshis}
+                        sx={{ width: 120 }}
+                        onChange={(e) => setTempOutput({ ...tempOutput, satoshis: parseInt(e.target.value, 10) })}
+                    />
+                    <TextField
+                        label="Description"
+                        value={tempOutput.outputDescription}
+                        onChange={(e) => setTempOutput({ ...tempOutput, outputDescription: e.target.value })}
+                    />
+                    <Button variant="outlined" onClick={handleAddOutput}>
+                        Add Output
+                    </Button>
+                </Stack>
+
+                <Divider sx={{ my: 2 }} />
+
+                <Typography variant="subtitle1">Options</Typography>
+                <Stack direction="row" spacing={2}>
+                    <FormControlLabel
+                        control={
+                            <Checkbox
+                                checked={signAndProcess}
+                                onChange={(e) => setSignAndProcess(e.target.checked)}
+                            />
+                        }
+                        label="signAndProcess"
+                    />
+                    <FormControlLabel
+                        control={
+                            <Checkbox
+                                checked={acceptDelayedBroadcast}
+                                onChange={(e) => setAcceptDelayedBroadcast(e.target.checked)}
+                            />
+                        }
+                        label="acceptDelayedBroadcast"
+                    />
+                    <FormControlLabel
+                        control={
+                            <Checkbox
+                                checked={returnTXIDOnly}
+                                onChange={(e) => setReturnTXIDOnly(e.target.checked)}
+                            />
+                        }
+                        label="returnTXIDOnly"
+                    />
+                    <FormControlLabel
+                        control={
+                            <Checkbox
+                                checked={noSend}
+                                onChange={(e) => setNoSend(e.target.checked)}
+                            />
+                        }
+                        label="noSend"
+                    />
+                </Stack>
+
+                <Button variant="contained" sx={{ mt: 2 }} onClick={handleCreateAction}>
+                    Create Action
+                </Button>
+
                 {transactionResult && (
-                    <Box sx={{ mt: 2 }}>
-                        <Typography variant="body1">
-                            Last transaction result:
+                    <Box sx={{ mt: 3 }}>
+                        <Typography variant="body1" fontWeight="bold">
+                            createAction() result:
                         </Typography>
                         <pre style={{ background: '#f5f5f5', padding: 8 }}>
                             {JSON.stringify(transactionResult, null, 2)}
                         </pre>
+
                         {transactionResult?.signableTransaction && (
                             <Stack direction="row" spacing={2}>
-                                <Button variant="contained" onClick={handleSignAction}>
-                                    Sign Transaction
-                                </Button>
-                                <Button color="warning" variant="contained" onClick={handleAbortAction}>
-                                    Abort Transaction
+                                <Button variant="contained" color="warning" onClick={handleAbortAction}>
+                                    Abort
                                 </Button>
                             </Stack>
                         )}
@@ -178,31 +381,55 @@ function ActionsPage() {
                 )}
             </Paper>
 
-            <Paper sx={{ p: 2, mb: 2 }}>
-                <Stack direction="row" alignItems="center" spacing={2}>
-                    <Typography variant="h6">List Actions</Typography>
-                    <FormControlLabel
-                        control={
-                            <Checkbox
-                                checked={includeLabels}
-                                onChange={(e) => setIncludeLabels(e.target.checked)}
-                            />
-                        }
-                        label="Include Labels?"
+            {/** SIGN ACTION SECTION */}
+            <Paper sx={{ p: 2, mb: 4 }}>
+                <Typography variant="h6" gutterBottom>Sign an Existing Action</Typography>
+                <Stack direction="row" spacing={2}>
+                    <TextField
+                        label="Reference (Base64)"
+                        value={signReference}
+                        onChange={(e) => setSignReference(e.target.value)}
+                        fullWidth
                     />
-                    <Button
-                        variant="outlined"
-                        onClick={() => listActions(actionsPage)}
-                    >
-                        Refresh
-                    </Button>
                 </Stack>
-                <List>
+                <Typography variant="body2" sx={{ mt: 1 }}>
+                    Provide `spends` as JSON. Example: {`"0":{"unlockingScript":"abcd...","sequenceNumber":123}`}
+                </Typography>
+                <TextField
+                    label="spends (JSON)"
+                    multiline
+                    rows={3}
+                    value={spendsJson}
+                    onChange={(e) => setSpendsJson(e.target.value)}
+                    fullWidth
+                    sx={{ mt: 1 }}
+                />
+                <Button variant="contained" sx={{ mt: 2 }} onClick={handleSignAction}>
+                    signAction
+                </Button>
+            </Paper>
+
+            {/** LIST ACTIONS SECTION */}
+            <Paper sx={{ p: 2, mb: 2 }}>
+                <Typography variant="h6" gutterBottom>List Actions</Typography>
+                <Button
+                    variant="outlined"
+                    onClick={() => listActions(actionsPage)}
+                    sx={{ mb: 2 }}
+                >
+                    Refresh
+                </Button>
+                <List dense>
                     {actions.map((a, i) => (
                         <ListItem key={i}>
                             <ListItemText
-                                primary={`TXID: ${a.txid} - Desc: ${a.description}`}
-                                secondary={`Status: ${a.status} | Sats: ${a.satoshis}`}
+                                primary={`TXID: ${a.txid} - Desc: ${a.description} - Status: ${a.status}`}
+                                secondary={
+                                    <>
+                                        Inputs: {a.inputs?.length ?? 0}, Outputs: {a.outputs?.length ?? 0}
+                                        {a.labels?.length ? ` | Labels: ${a.labels.join(', ')}` : ''}
+                                    </>
+                                }
                             />
                         </ListItem>
                     ))}
@@ -217,67 +444,6 @@ function ActionsPage() {
                     }}
                 />
             </Paper>
-
-            <Paper sx={{ p: 2, mb: 2 }}>
-                <Typography variant="h6">Internalize an Existing Transaction</Typography>
-                <Stack direction="column" spacing={2} sx={{ mt: 2 }}>
-                    <Button variant="contained" onClick={handleOpenInternalize}>
-                        Internalize
-                    </Button>
-                </Stack>
-            </Paper>
-
-            <Dialog open={internalizeOpen} onClose={handleCloseInternalize} fullWidth>
-                <DialogTitle>Internalize Transaction</DialogTitle>
-                <DialogContent>
-                    <Typography>Enter Hex-Encoded Transaction (AtomicBEEF) Below</Typography>
-                    <TextField
-                        label="Tx (Hex)"
-                        fullWidth
-                        multiline
-                        rows={3}
-                        value={internalizeTx}
-                        onChange={(e) => setInternalizeTx(e.target.value)}
-                        sx={{ mt: 1 }}
-                    />
-                    <Typography sx={{ mt: 2 }}>
-                        Provide outputs as JSON array. Example:
-                    </Typography>
-                    <pre style={{ background: '#f5f5f5', padding: 8 }}>
-                        {`[
-  {
-    "outputIndex": 0,
-    "protocol": "wallet payment",
-    "paymentRemittance": {
-      "derivationPrefix": "BASE64",
-      "derivationSuffix": "BASE64",
-      "senderIdentityKey": "02abc123..."
-    }
-  },
-  {
-    "outputIndex": 1,
-    "protocol": "basket insertion",
-    "insertionRemittance": {
-      "basket": "myBasket",
-      "tags": ["coolTag"]
-    }
-  }
-]`}
-                    </pre>
-                    <TextField
-                        label="Outputs JSON"
-                        fullWidth
-                        multiline
-                        rows={6}
-                        value={internalizeOutputs}
-                        onChange={(e) => setInternalizeOutputs(e.target.value)}
-                    />
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={handleCloseInternalize}>Cancel</Button>
-                    <Button onClick={handleInternalize} variant="contained">Submit</Button>
-                </DialogActions>
-            </Dialog>
         </Box>
     );
 }

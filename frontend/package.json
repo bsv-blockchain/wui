@@ -11,6 +11,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@bsv/sdk": "^1.3.5",
     "@emotion/react": "^11.10.8",
     "@emotion/styled": "^11.10.8",
     "@mui/icons-material": "^5.11.0",
@@ -22,6 +23,7 @@
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.8.0",
     "typescript": "^4.9.5",
+    "wallet-storage-client": "^1.0.1",
     "web-vitals": "^3.3.2"
   },
   "devDependencies": {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
     Box,
     Typography,
@@ -26,81 +26,11 @@ function CryptoPage() {
     const [cryptoCounterparty, setCryptoCounterparty] = useState('anyone');
     const [privileged, setPrivileged] = useState(false);
 
-    const handleEncrypt = async () => {
-        if (!wallet) return;
-        const dataBytes = stringToBytes(plaintext);
-        try {
-            const resp = await wallet.encrypt({
-                plaintext: dataBytes,
-                protocolID: [cryptoSecurityLevel, cryptoProtocol],
-                keyID: cryptoKeyID,
-                counterparty: cryptoCounterparty,
-                privileged
-            });
-            setEncryptResult(bytesToHex(resp.ciphertext));
-        } catch (err) {
-            console.error(err);
-        }
-    };
-
-    const handleDecrypt = async () => {
-        if (!wallet) return;
-        const ct = parseHexString(ciphertextHex);
-        try {
-            const resp = await wallet.decrypt({
-                ciphertext: ct,
-                protocolID: [cryptoSecurityLevel, cryptoProtocol],
-                keyID: cryptoKeyID,
-                counterparty: cryptoCounterparty,
-                privileged
-            });
-            setDecryptResult(bytesToString(resp.plaintext));
-        } catch (err) {
-            console.error(err);
-        }
-    };
-
     // HMAC
     const [hmacData, setHmacData] = useState('');
     const [hmacResult, setHmacResult] = useState('');
     const [verifyHmacText, setVerifyHmacText] = useState('');
     const [verifyHmacOutput, setVerifyHmacOutput] = useState('');
-
-    const handleCreateHmac = async () => {
-        if (!wallet) return;
-        const dataBytes = stringToBytes(hmacData);
-        try {
-            const resp = await wallet.createHmac({
-                data: dataBytes,
-                protocolID: [cryptoSecurityLevel, cryptoProtocol],
-                keyID: cryptoKeyID,
-                counterparty: cryptoCounterparty,
-                privileged
-            });
-            setHmacResult(bytesToHex(resp.hmac));
-        } catch (err) {
-            console.error(err);
-        }
-    };
-
-    const handleVerifyHmac = async () => {
-        if (!wallet) return;
-        const dataBytes = stringToBytes(hmacData);
-        const hmacBytes = parseHexString(verifyHmacText);
-        try {
-            const resp = await wallet.verifyHmac({
-                data: dataBytes,
-                hmac: hmacBytes,
-                protocolID: [cryptoSecurityLevel, cryptoProtocol],
-                keyID: cryptoKeyID,
-                counterparty: cryptoCounterparty,
-                privileged
-            });
-            setVerifyHmacOutput(resp.valid ? 'VALID HMAC' : 'INVALID HMAC');
-        } catch (err) {
-            console.error(err);
-        }
-    };
 
     // Sign / Verify
     const [signData, setSignData] = useState('');
@@ -108,41 +38,7 @@ function CryptoPage() {
     const [signResult, setSignResult] = useState('');
     const [verifyOutput, setVerifyOutput] = useState('');
 
-    const handleSign = async () => {
-        if (!wallet) return;
-        const dataBytes = stringToBytes(signData);
-        try {
-            const resp = await wallet.createSignature({
-                data: dataBytes,
-                protocolID: [cryptoSecurityLevel, cryptoProtocol],
-                keyID: cryptoKeyID,
-                counterparty: cryptoCounterparty,
-                privileged
-            });
-            setSignResult(bytesToHex(resp.signature));
-        } catch (err) {
-            console.error(err);
-        }
-    };
-
-    const handleVerify = async () => {
-        if (!wallet) return;
-        const dataBytes = stringToBytes(signData);
-        const sigBytes = parseHexString(signatureHex);
-        try {
-            const resp = await wallet.verifySignature({
-                data: dataBytes,
-                signature: sigBytes,
-                protocolID: [cryptoSecurityLevel, cryptoProtocol],
-                keyID: cryptoKeyID,
-                counterparty: cryptoCounterparty,
-                privileged
-            });
-            setVerifyOutput(resp.valid ? 'VALID SIGNATURE' : 'INVALID SIGNATURE');
-        } catch (err) {
-            console.error(err);
-        }
-    };
+    const { wallet: w } = useWallet();
 
     function stringToBytes(str: string): number[] {
         return Array.from(new TextEncoder().encode(str));
@@ -162,11 +58,117 @@ function CryptoPage() {
         return arr.map((b) => b.toString(16).padStart(2, '0')).join('');
     }
 
+    const handleEncrypt = async () => {
+        if (!w) return;
+        const dataBytes = stringToBytes(plaintext);
+        try {
+            const resp = await w.encrypt({
+                plaintext: dataBytes,
+                protocolID: [cryptoSecurityLevel, cryptoProtocol],
+                keyID: cryptoKeyID,
+                counterparty: cryptoCounterparty,
+                privileged
+            });
+            setEncryptResult(bytesToHex(resp.ciphertext));
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
+    const handleDecrypt = async () => {
+        if (!w) return;
+        const ct = parseHexString(ciphertextHex);
+        try {
+            const resp = await w.decrypt({
+                ciphertext: ct,
+                protocolID: [cryptoSecurityLevel, cryptoProtocol],
+                keyID: cryptoKeyID,
+                counterparty: cryptoCounterparty,
+                privileged
+            });
+            setDecryptResult(bytesToString(resp.plaintext));
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
+    const handleCreateHmac = async () => {
+        if (!w) return;
+        const dataBytes = stringToBytes(hmacData);
+        try {
+            const resp = await w.createHmac({
+                data: dataBytes,
+                protocolID: [cryptoSecurityLevel, cryptoProtocol],
+                keyID: cryptoKeyID,
+                counterparty: cryptoCounterparty,
+                privileged
+            });
+            setHmacResult(bytesToHex(resp.hmac));
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
+    const handleVerifyHmac = async () => {
+        if (!w) return;
+        const dataBytes = stringToBytes(hmacData);
+        const hmacBytes = parseHexString(verifyHmacText);
+        try {
+            const resp = await w.verifyHmac({
+                data: dataBytes,
+                hmac: hmacBytes,
+                protocolID: [cryptoSecurityLevel, cryptoProtocol],
+                keyID: cryptoKeyID,
+                counterparty: cryptoCounterparty,
+                privileged
+            });
+            setVerifyHmacOutput(resp.valid ? 'VALID HMAC' : 'INVALID HMAC');
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
+    const handleSign = async () => {
+        if (!w) return;
+        const dataBytes = stringToBytes(signData);
+        try {
+            const resp = await w.createSignature({
+                data: dataBytes,
+                protocolID: [cryptoSecurityLevel, cryptoProtocol],
+                keyID: cryptoKeyID,
+                counterparty: cryptoCounterparty,
+                privileged
+            });
+            setSignResult(bytesToHex(resp.signature));
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
+    const handleVerify = async () => {
+        if (!w) return;
+        const dataBytes = stringToBytes(signData);
+        const sigBytes = parseHexString(signatureHex);
+        try {
+            const resp = await w.verifySignature({
+                data: dataBytes,
+                signature: sigBytes,
+                protocolID: [cryptoSecurityLevel, cryptoProtocol],
+                keyID: cryptoKeyID,
+                counterparty: cryptoCounterparty,
+                privileged
+            });
+            setVerifyOutput(resp.valid ? 'VALID SIGNATURE' : 'INVALID SIGNATURE');
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
     return (
         <Box>
             <Typography variant="h4" gutterBottom>Crypto</Typography>
             <Paper sx={{ p: 2, mb: 2 }}>
-                <Stack direction="row" spacing={2}>
+                <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
                     <TextField
                         label="Protocol"
                         value={cryptoProtocol}
@@ -257,7 +259,7 @@ function CryptoPage() {
                 </Stack>
             </Paper>
 
-            <Paper sx={{ p: 2, mb: 2 }}>
+            <Paper sx={{ p: 2 }}>
                 <Typography variant="h6">Sign / Verify</Typography>
                 <Stack direction="column" spacing={2} sx={{ mt: 2 }}>
                     <TextField

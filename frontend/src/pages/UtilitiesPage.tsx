@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
     Box,
     Typography,
@@ -84,7 +84,7 @@ function UtilitiesPage() {
         <Box>
             <Typography variant="h4" gutterBottom>Utilities</Typography>
             <Paper sx={{ p: 2, mb: 2 }}>
-                <Stack direction="row" spacing={2}>
+                <Stack direction="row" spacing={2} alignItems="center">
                     <Button variant="contained" onClick={handleCheckAuth}>
                         isAuthenticated
                     </Button>
@@ -95,7 +95,7 @@ function UtilitiesPage() {
                 </Stack>
             </Paper>
             <Paper sx={{ p: 2, mb: 2 }}>
-                <Stack direction="row" spacing={2}>
+                <Stack direction="row" spacing={2} alignItems="center">
                     <Button variant="contained" onClick={handleGetHeight}>
                         getHeight
                     </Button>
@@ -113,20 +113,24 @@ function UtilitiesPage() {
                     <Button variant="contained" onClick={handleGetHeaderForHeight}>
                         getHeaderForHeight
                     </Button>
+                    <Typography>Header: {headerResult}</Typography>
                 </Stack>
-                <Typography>Result: {headerResult}</Typography>
             </Paper>
             <Paper sx={{ p: 2, mb: 2 }}>
-                <Button variant="contained" onClick={handleGetNetwork}>
-                    getNetwork
-                </Button>
-                <Typography>Result: {networkResult}</Typography>
+                <Stack direction="row" spacing={2} alignItems="center">
+                    <Button variant="contained" onClick={handleGetNetwork}>
+                        getNetwork
+                    </Button>
+                    <Typography>Result: {networkResult}</Typography>
+                </Stack>
             </Paper>
-            <Paper sx={{ p: 2, mb: 2 }}>
-                <Button variant="contained" onClick={handleGetVersion}>
-                    getVersion
-                </Button>
-                <Typography>Result: {versionResult}</Typography>
+            <Paper sx={{ p: 2 }}>
+                <Stack direction="row" spacing={2} alignItems="center">
+                    <Button variant="contained" onClick={handleGetVersion}>
+                        getVersion
+                    </Button>
+                    <Typography>Result: {versionResult}</Typography>
+                </Stack>
             </Paper>
         </Box>
     );

@@ -1,7 +1,6 @@
-import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
-import { CssBaseline } from '@mui/material';
+import { CssBaseline, Container } from '@mui/material';
 
 import HomePage from './pages/HomePage';
 import ActionsPage from './pages/ActionsPage';
@@ -14,10 +13,16 @@ import UtilitiesPage from './pages/UtilitiesPage';
 import MainLayout from './components/MainLayout';
 import { WalletProvider } from './contexts/WalletContext';
 
-// MUI Theme:
 const theme = createTheme({
     palette: {
         mode: 'light'
+    },
+    components: {
+        MuiContainer: {
+            defaultProps: {
+                maxWidth: 'lg'
+            }
+        }
     }
 });
 
@@ -25,14 +30,11 @@ function App() {
     return (
         <ThemeProvider theme={theme}>
             <CssBaseline />
-            {/* The WalletProvider makes the wallet instance available throughout the app */}
             <WalletProvider>
                 <BrowserRouter>
                     <Routes>
-                        {/* The home page handles private key input */}
                         <Route path="/" element={<HomePage />} />
-
-                        {/* Once we have a wallet, everything else is under our MainLayout */}
+                        {/* Wrap all "internal" pages in MainLayout */}
                         <Route element={<MainLayout />}>
                             <Route path="/actions" element={<ActionsPage />} />
                             <Route path="/outputs" element={<OutputsPage />} />
@@ -41,8 +43,6 @@ function App() {
                             <Route path="/certificates" element={<CertificatesPage />} />
                             <Route path="/utilities" element={<UtilitiesPage />} />
                         </Route>
-
-                        {/* Fallback route */}
                         <Route path="*" element={<Navigate to="/" />} />
                     </Routes>
                 </BrowserRouter>

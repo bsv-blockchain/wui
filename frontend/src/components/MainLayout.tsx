@@ -1,4 +1,3 @@
-import React from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import {
     AppBar,
@@ -9,7 +8,8 @@ import {
     List,
     ListItemButton,
     ListItemText,
-    Box
+    Box,
+    Container
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import { useState } from 'react';
@@ -47,7 +47,7 @@ function MainLayout() {
     );
 
     return (
-        <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
             <AppBar position="static">
                 <Toolbar>
                     <IconButton
@@ -59,19 +59,16 @@ function MainLayout() {
                     >
                         <MenuIcon />
                     </IconButton>
-                    <Typography variant="h6" component="div">
-                        BRC-100 Wallet UI
-                    </Typography>
+                    <Typography variant="h6">BRC-100 Wallet UI</Typography>
                 </Toolbar>
             </AppBar>
             <Drawer open={open} onClose={handleDrawerToggle}>
                 {drawer}
             </Drawer>
 
-            {/* The content area: each route's component will be rendered here */}
-            <Box sx={{ flex: 1, overflow: 'auto', p: 2 }}>
+            <Container sx={{ flex: 1, py: 3 }}>
                 <Outlet />
-            </Box>
+            </Container>
         </Box>
     );
 }

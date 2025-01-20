@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
     Box,
     Typography,
@@ -17,16 +17,18 @@ function KeysLinkagePage() {
     const [securityLevel, setSecurityLevel] = useState(0);
     const [keyID, setKeyID] = useState('');
     const [counterparty, setCounterparty] = useState('');
+    const [identityKeyChecked, setIdentityKeyChecked] = useState(false);
     const [publicKeyResult, setPublicKeyResult] = useState('');
 
     const handleGetPubKey = async () => {
         if (!wallet) return;
         try {
             const resp = await wallet.getPublicKey({
-                identityKey: false,
-                protocolID: [securityLevel, protocolString],
-                keyID,
-                counterparty
+                identityKey: identityKeyChecked,
+                protocolID: identityKeyChecked ? undefined : [securityLevel, protocolString],
+                keyID: identityKeyChecked ? undefined : keyID,
+                counterparty: identityKeyChecked ? undefined : (counterparty || 'anyone'),
+                // forSelf, privileged, privilegedReason can also be appended
             });
             setPublicKeyResult(resp.publicKey);
         } catch (err) {
@@ -45,6 +47,7 @@ function KeysLinkagePage() {
             const resp = await wallet.revealCounterpartyKeyLinkage({
                 counterparty: counterpartyLink,
                 verifier
+                // privileged, privilegedReason can be appended
             });
             setLinkageResult(resp);
         } catch (err) {
@@ -54,7 +57,7 @@ function KeysLinkagePage() {
 
     // Reveal Specific
     const [specificProtocol, setSpecificProtocol] = useState('docsig');
-    const [specificLevel, setSpecificLevel] = useState(1);
+    const [specificLevel, setSpecificLevel] = useState<0 | 1 | 2>(1);
     const [specificKeyID, setSpecificKeyID] = useState('doc#123');
     const [specificVerifier, setSpecificVerifier] = useState('');
     const [specificCounterparty, setSpecificCounterparty] = useState('');
@@ -77,52 +80,68 @@ function KeysLinkagePage() {
 
     return (
         <Box>
-            <Typography variant="h4" gutterBottom>Keys & Linkage</Typography>
-            <Paper sx={{ p: 2, mb: 2 }}>
+            <Typography variant="h4" gutterBottom>Keys &amp; Linkage</Typography>
+
+            <Paper sx={{ p: 2, mb: 4 }}>
                 <Typography variant="h6">getPublicKey</Typography>
-                <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
-                    <TextField
-                        label="Security Level"
-                        type="number"
-                        value={securityLevel}
-                        onChange={(e) => setSecurityLevel(parseInt(e.target.value, 10))}
-                    />
-                    <TextField
-                        label="Protocol String"
-                        value={protocolString}
-                        onChange={(e) => setProtocolString(e.target.value)}
-                    />
-                    <TextField
-                        label="Key ID"
-                        value={keyID}
-                        onChange={(e) => setKeyID(e.target.value)}
-                    />
-                    <TextField
-                        label="Counterparty PubKey"
-                        value={counterparty}
-                        onChange={(e) => setCounterparty(e.target.value)}
-                    />
-                    <Button variant="contained" onClick={handleGetPubKey}>
-                        Get
-                    </Button>
+                <Stack direction="column" spacing={2} sx={{ mt: 2 }}>
+                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                        <Button
+                            variant={identityKeyChecked ? 'contained' : 'outlined'}
+                            onClick={() => {
+                                setIdentityKeyChecked((prev) => !prev);
+                            }}
+                        >
+                            {identityKeyChecked ? 'Using Identity Key' : 'Use Identity Key?'}
+                        </Button>
+                        {!identityKeyChecked && (
+                            <>
+                                <TextField
+                                    label="Security Level"
+                                    type="number"
+                                    value={securityLevel}
+                                    onChange={(e) => setSecurityLevel(parseInt(e.target.value, 10))}
+                                    sx={{ width: 150 }}
+                                />
+                                <TextField
+                                    label="Protocol String"
+                                    value={protocolString}
+                                    onChange={(e) => setProtocolString(e.target.value)}
+                                />
+                                <TextField
+                                    label="Key ID"
+                                    value={keyID}
+                                    onChange={(e) => setKeyID(e.target.value)}
+                                />
+                                <TextField
+                                    label="Counterparty PubKey"
+                                    value={counterparty}
+                                    onChange={(e) => setCounterparty(e.target.value)}
+                                />
+                            </>
+                        )}
+                        <Button variant="contained" onClick={handleGetPubKey}>
+                            Get
+                        </Button>
+                    </Stack>
+                    {publicKeyResult && (
+                        <Typography variant="body2">
+                            Public Key: {publicKeyResult}
+                        </Typography>
+                    )}
                 </Stack>
-                {publicKeyResult && (
-                    <Typography variant="body2" sx={{ mt: 1 }}>
-                        Public Key: {publicKeyResult}
-                    </Typography>
-                )}
             </Paper>
 
-            <Paper sx={{ p: 2, mb: 2 }}>
+            <Paper sx={{ p: 2, mb: 4 }}>
                 <Typography variant="h6">Reveal Counterparty Key Linkage</Typography>
-                <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mt: 2 }}>
                     <TextField
-                        label="Counterparty"
+                        label="Counterparty PubKey"
                         value={counterpartyLink}
                         onChange={(e) => setCounterpartyLink(e.target.value)}
                     />
                     <TextField
-                        label="Verifier"
+                        label="Verifier PubKey"
                         value={verifier}
                         onChange={(e) => setVerifier(e.target.value)}
                     />
@@ -140,46 +159,48 @@ function KeysLinkagePage() {
                 )}
             </Paper>
 
-            <Paper sx={{ p: 2, mb: 2 }}>
+            <Paper sx={{ p: 2 }}>
                 <Typography variant="h6">Reveal Specific Key Linkage</Typography>
-                <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
-                    <TextField
-                        label="Security Level"
-                        type="number"
-                        value={specificLevel}
-                        onChange={(e) => setSpecificLevel(parseInt(e.target.value, 10))}
-                    />
-                    <TextField
-                        label="Protocol"
-                        value={specificProtocol}
-                        onChange={(e) => setSpecificProtocol(e.target.value)}
-                    />
-                    <TextField
-                        label="Key ID"
-                        value={specificKeyID}
-                        onChange={(e) => setSpecificKeyID(e.target.value)}
-                    />
+                <Stack direction="column" spacing={2} sx={{ mt: 2 }}>
+                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                        <TextField
+                            label="SecLevel"
+                            type="number"
+                            value={specificLevel}
+                            onChange={(e) => setSpecificLevel(parseInt(e.target.value, 10))}
+                        />
+                        <TextField
+                            label="Protocol"
+                            value={specificProtocol}
+                            onChange={(e) => setSpecificProtocol(e.target.value)}
+                        />
+                        <TextField
+                            label="Key ID"
+                            value={specificKeyID}
+                            onChange={(e) => setSpecificKeyID(e.target.value)}
+                        />
+                    </Stack>
+                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                        <TextField
+                            label="Counterparty"
+                            value={specificCounterparty}
+                            onChange={(e) => setSpecificCounterparty(e.target.value)}
+                        />
+                        <TextField
+                            label="Verifier"
+                            value={specificVerifier}
+                            onChange={(e) => setSpecificVerifier(e.target.value)}
+                        />
+                        <Button variant="contained" onClick={handleRevealSpecific}>
+                            Reveal
+                        </Button>
+                    </Stack>
+                    {specificResult && (
+                        <pre style={{ background: '#f5f5f5', padding: 8 }}>
+                            {JSON.stringify(specificResult, null, 2)}
+                        </pre>
+                    )}
                 </Stack>
-                <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
-                    <TextField
-                        label="Counterparty"
-                        value={specificCounterparty}
-                        onChange={(e) => setSpecificCounterparty(e.target.value)}
-                    />
-                    <TextField
-                        label="Verifier"
-                        value={specificVerifier}
-                        onChange={(e) => setSpecificVerifier(e.target.value)}
-                    />
-                    <Button variant="contained" onClick={handleRevealSpecific}>
-                        Reveal
-                    </Button>
-                </Stack>
-                {specificResult && (
-                    <pre style={{ background: '#f5f5f5', padding: 8, marginTop: 8 }}>
-                        {JSON.stringify(specificResult, null, 2)}
-                    </pre>
-                )}
             </Paper>
         </Box>
     );

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
     Box,
     Typography,
@@ -77,6 +77,7 @@ function CertificatesPage() {
 
     const handleCloseProveDialog = () => {
         setProveDialogOpen(false);
+        setProveResult(null);
     };
 
     const handleProve = async () => {
@@ -143,9 +144,9 @@ function CertificatesPage() {
     return (
         <Box>
             <Typography variant="h4" gutterBottom>Certificates</Typography>
-            <Paper sx={{ p: 2, mb: 2 }}>
+            <Paper sx={{ p: 2, mb: 4 }}>
                 <Typography variant="h6">Acquire Certificate</Typography>
-                <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
+                <Stack direction="row" spacing={2} sx={{ mt: 2 }} flexWrap="wrap">
                     <TextField
                         label="Type (base64)"
                         value={acqType}
@@ -160,9 +161,7 @@ function CertificatesPage() {
                         label="acquisitionProtocol"
                         value={acqProtocol}
                         onChange={(e) =>
-                            setAcqProtocol(
-                                e.target.value === 'issuance' ? 'issuance' : 'direct'
-                            )
+                            setAcqProtocol(e.target.value === 'issuance' ? 'issuance' : 'direct')
                         }
                     />
                 </Stack>
@@ -184,7 +183,7 @@ function CertificatesPage() {
                 )}
             </Paper>
 
-            <Paper sx={{ p: 2, mb: 2 }}>
+            <Paper sx={{ p: 2, mb: 4 }}>
                 <Typography variant="h6">List Certificates</Typography>
                 <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
                     <Button variant="contained" onClick={handleListCerts}>
@@ -194,32 +193,36 @@ function CertificatesPage() {
                 </Stack>
                 <List>
                     {listedCerts.map((cert, i) => (
-                        <ListItem key={i}>
+                        <ListItem
+                            key={i}
+                            secondaryAction={
+                                <Stack direction="row" spacing={1}>
+                                    <Button
+                                        variant="outlined"
+                                        onClick={() => handleOpenProveDialog(cert)}
+                                    >
+                                        Prove
+                                    </Button>
+                                    <Button
+                                        variant="contained"
+                                        color="warning"
+                                        onClick={() => handleRelinquishCert(cert)}
+                                    >
+                                        Relinquish
+                                    </Button>
+                                </Stack>
+                            }
+                        >
                             <ListItemText
                                 primary={`Serial: ${cert.serialNumber}`}
                                 secondary={`Type: ${cert.type}, Certifier: ${cert.certifier}`}
                             />
-                            <Stack direction="row" spacing={1}>
-                                <Button
-                                    variant="outlined"
-                                    onClick={() => handleOpenProveDialog(cert)}
-                                >
-                                    Prove
-                                </Button>
-                                <Button
-                                    variant="contained"
-                                    color="warning"
-                                    onClick={() => handleRelinquishCert(cert)}
-                                >
-                                    Relinquish
-                                </Button>
-                            </Stack>
                         </ListItem>
                     ))}
                 </List>
             </Paper>
 
-            <Paper sx={{ p: 2, mb: 2 }}>
+            <Paper sx={{ p: 2, mb: 4 }}>
                 <Typography variant="h6">Discover Certificates by Identity Key</Typography>
                 <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
                     <TextField
@@ -243,7 +246,7 @@ function CertificatesPage() {
                 </List>
             </Paper>
 
-            <Paper sx={{ p: 2, mb: 2 }}>
+            <Paper sx={{ p: 2 }}>
                 <Typography variant="h6">Discover Certificates by Attributes</Typography>
                 <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
                     <TextField
