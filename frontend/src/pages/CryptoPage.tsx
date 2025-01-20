@@ -12,8 +12,6 @@ import {
 import { useWallet } from '../contexts/WalletContext';
 
 function CryptoPage() {
-    const { wallet } = useWallet();
-
     // Encryption / Decryption
     const [plaintext, setPlaintext] = useState('');
     const [ciphertextHex, setCiphertextHex] = useState('');
@@ -21,7 +19,7 @@ function CryptoPage() {
     const [decryptResult, setDecryptResult] = useState('');
 
     const [cryptoProtocol, setCryptoProtocol] = useState('encryption-protocol');
-    const [cryptoSecurityLevel, setCryptoSecurityLevel] = useState(1);
+    const [cryptoSecurityLevel, setCryptoSecurityLevel] = useState<0 | 1 | 2>(1);
     const [cryptoKeyID, setCryptoKeyID] = useState('encrypt-key');
     const [cryptoCounterparty, setCryptoCounterparty] = useState('anyone');
     const [privileged, setPrivileged] = useState(false);
@@ -178,7 +176,7 @@ function CryptoPage() {
                         label="SecLevel"
                         type="number"
                         value={cryptoSecurityLevel}
-                        onChange={(e) => setCryptoSecurityLevel(parseInt(e.target.value, 10))}
+                        onChange={(e) => setCryptoSecurityLevel(parseInt(e.target.value, 10) as 0 | 1 | 2)}
                         sx={{ width: 100 }}
                     />
                     <TextField

@@ -14,7 +14,7 @@ function KeysLinkagePage() {
 
     // getPublicKey
     const [protocolString, setProtocolString] = useState('someProtocol');
-    const [securityLevel, setSecurityLevel] = useState(0);
+    const [securityLevel, setSecurityLevel] = useState<0 | 1 | 2>(0);
     const [keyID, setKeyID] = useState('');
     const [counterparty, setCounterparty] = useState('');
     const [identityKeyChecked, setIdentityKeyChecked] = useState(false);
@@ -24,7 +24,7 @@ function KeysLinkagePage() {
         if (!wallet) return;
         try {
             const resp = await wallet.getPublicKey({
-                identityKey: identityKeyChecked,
+                identityKey: identityKeyChecked ? true : undefined,
                 protocolID: identityKeyChecked ? undefined : [securityLevel, protocolString],
                 keyID: identityKeyChecked ? undefined : keyID,
                 counterparty: identityKeyChecked ? undefined : (counterparty || 'anyone'),
@@ -100,7 +100,7 @@ function KeysLinkagePage() {
                                     label="Security Level"
                                     type="number"
                                     value={securityLevel}
-                                    onChange={(e) => setSecurityLevel(parseInt(e.target.value, 10))}
+                                    onChange={(e) => setSecurityLevel(parseInt(e.target.value, 10) as 0 | 1 | 2)}
                                     sx={{ width: 150 }}
                                 />
                                 <TextField
@@ -167,7 +167,7 @@ function KeysLinkagePage() {
                             label="SecLevel"
                             type="number"
                             value={specificLevel}
-                            onChange={(e) => setSpecificLevel(parseInt(e.target.value, 10))}
+                            onChange={(e) => setSpecificLevel(parseInt(e.target.value, 10) as 0 | 1 | 2)}
                         />
                         <TextField
                             label="Protocol"

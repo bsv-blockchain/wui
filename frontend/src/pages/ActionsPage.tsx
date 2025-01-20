@@ -73,7 +73,6 @@ function ActionsPage() {
 
     /** SIGN ACTION FORM */
     const [signReference, setSignReference] = useState('');
-    const [signSpends, setSignSpends] = useState<Record<string, any>>({});
     // For convenience, let's just do a JSON field that user can type in:
     const [spendsJson, setSpendsJson] = useState('{}');
 

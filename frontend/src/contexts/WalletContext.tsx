@@ -1,10 +1,6 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
-import { Wallet, WalletSigner, WalletStorageManager, StorageClient } from 'wallet-storage-client';
-import { KeyDeriver, PrivateKey } from '@bsv/sdk'
-
-// ------------------------------------------------------
-// The React Context & Provider
-// ------------------------------------------------------
+import { Wallet } from '@bsv/sdk'
+import makeWallet from '../utils/makeWallet'
 
 interface WalletContextValue {
     wallet: Wallet | null;
@@ -24,14 +20,11 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     useEffect(() => {
         (async () => {
             const storedKey = localStorage.getItem('brc100privkey');
-            if (storedKey) {
+            const storedStorageURL = localStorage.getItem('brc100storage');
+            const storedNetwork = localStorage.getItem('brc100network');
+            if (storedKey && storedStorageURL && storedNetwork) {
                 // create a new wallet
-                const keyDeriver = new KeyDeriver(PrivateKey.fromHex(storedKey));
-                const storageManager = new WalletStorageManager(keyDeriver.identityKey);
-                const signer = new WalletSigner('test', keyDeriver, storageManager);
-                const wallet = new Wallet(signer, keyDeriver);
-                const client = new StorageClient(wallet, 'https://staging-dojo.babbage.systems');
-                await storageManager.addWalletStorageProvider(client);
+                const wallet = await makeWallet(storedNetwork as 'test' | 'main', storedKey, storedStorageURL);
                 setWallet(wallet);
             }
         })();
