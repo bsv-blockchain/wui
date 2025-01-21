@@ -203,10 +203,9 @@ function HomePage() {
                                 }}
                             >
                                 <Box>
-                                    <Typography fontWeight="bold">{c.name}</Typography>
+                                    <Typography fontWeight="bold">{c.name} (<strong>••••{c.pubKeySuffix}</strong>)</Typography>
                                     <Typography variant="body2">
-                                        {c.network.toUpperCase()} | {domain} | PubKeySuffix:
-                                        <strong>••••{c.pubKeySuffix}</strong>
+                                        {c.network.toUpperCase()} | {domain}
                                     </Typography>
                                 </Box>
                                 <Stack direction="row" spacing={1}>
@@ -298,7 +297,6 @@ function HomePage() {
 /**
  * A subcomponent that uses "knownHosts" and merges custom stored hosts for the chosen network
  * to let the user pick from a dropdown or type in a custom host name & URL.
- * For simplicity, we show a simple approach here.
  */
 function StorageSelectUI(props: {
     network: 'main' | 'test';
@@ -316,7 +314,7 @@ function StorageSelectUI(props: {
         // If value is one of knownHosts, not custom
         const matched = hostOptions.find((h) => h.url === value);
         setIsCustom(!matched);
-    }, [value]);
+    }, [hostOptions, value]);
 
     function handleSelect(e: any) {
         const v = e.target.value;
