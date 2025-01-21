@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import {
     Box,
     Button,
-    CircularProgress,
     FormControl,
     InputLabel,
     MenuItem,
@@ -11,253 +10,351 @@ import {
     TextField,
     Typography,
     Paper,
-    FormHelperText
+    FormHelperText,
+    IconButton,
+    Stack,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions
 } from '@mui/material';
+import DeleteIcon from '@mui/icons-material/Delete';
+import EditIcon from '@mui/icons-material/Edit';
+import AddIcon from '@mui/icons-material/Add';
+
 import { useWallet } from '../contexts/WalletContext';
-import makeWallet from '../utils/makeWallet';
+import {
+    addNewConfig,
+    getAllConfigs,
+    removeConfig,
+    updateConfig,
+    WalletConfig
+} from '../utils/configStorage';
+import { generateRandomPrivateKey, validatePrivateKey, parseDomain } from '../utils/miscHelpers';
 
-function generateRandomPrivateKey() {
-    const array = new Uint8Array(32);
-    window.crypto.getRandomValues(array);
-    return Array.from(array, (byte) =>
-        byte.toString(16).padStart(2, '0')
-    ).join('');
-}
+const knownHosts = [
+    { network: 'main', name: 'Dojo (Mainnet, SoonTM)', url: 'https://dojo.babbage.systems' },
+    { network: 'main', name: 'MOCK Mainnet Storage2', url: 'https://wallet-storage2.com' },
+    { network: 'main', name: 'MOCK Mainnet Storage3', url: 'https://wallet-storage3.com' },
 
-const mainnetStorageOptions = [
-    'https://dojo.babbage.systems',
-    'https://wallet-storage2.com',
-    'https://wallet-storage3.com',
-];
-
-const testnetStorageOptions = [
-    'https://staging-dojo.babbage.systems',
-    'https://testnet-storage2.com',
-    'https://testnet-storage3.com',
+    { network: 'test', name: 'Dojo (Testnet)', url: 'https://staging-dojo.babbage.systems' },
+    { network: 'test', name: 'MOCK Testnet Storage2', url: 'https://testnet-storage2.com' },
+    { network: 'test', name: 'MOCK Testnet Storage3', url: 'https://testnet-storage3.com' }
 ];
 
 function HomePage() {
     const navigate = useNavigate();
-    const { wallet, setWallet } = useWallet();
+    const { pickActiveConfig } = useWallet();
 
+    const [configs, setConfigs] = useState<WalletConfig[]>([]);
+    const [addingNew, setAddingNew] = useState(false);
+    const [editingId, setEditingId] = useState<string | null>(null);
+
+    // Fields for new/edit config
+    const [cfgName, setCfgName] = useState('');
     const [privKeyInput, setPrivKeyInput] = useState('');
     const [networkInput, setNetworkInput] = useState<'main' | 'test'>('test');
     const [storageInput, setStorageInput] = useState('');
-    const [storageSelect, setStorageSelect] = useState('');
-    const [isCustomUrl, setIsCustomUrl] = useState(false);
-    const [isLoading, setIsLoading] = useState(false);
-
     const [privKeyError, setPrivKeyError] = useState('');
     const [storageError, setStorageError] = useState('');
 
-    // If a wallet is already present, redirect to /actions
     useEffect(() => {
-        if (wallet) {
-            navigate('/actions');
-        }
-    }, [wallet, navigate]);
+        refreshConfigs();
+    }, []);
 
-    // Update storage input field whenever the user selects from the list or chooses custom
-    useEffect(() => {
-        if (isCustomUrl) {
-            // When custom is selected, allow user to manually type
-            setStorageInput('');
-        } else {
-            // When not custom, set storage input to selected option
-            setStorageInput(storageSelect || '');
-        }
-    }, [storageSelect, isCustomUrl]);
+    // If there's an active wallet, we do NOT automatically redirect. 
+    // Because we might want to let them manage configs even though one is active.
+    // Only if you want to replicate old behavior: 
+    //   if(wallet) navigate('/actions');
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const handleNetworkChange = (event: any) => {
-        const value = event.target.value as 'main' | 'test';
-        setNetworkInput(value);
-        // Reset storage selection and custom
-        setStorageSelect('');
+    function refreshConfigs() {
+        const all = getAllConfigs();
+        setConfigs(all);
+    }
+
+    function startAddConfig() {
+        setAddingNew(true);
+        setEditingId(null);
+        setCfgName('');
+        setPrivKeyInput('');
+        setNetworkInput('test');
         setStorageInput('');
-        setIsCustomUrl(false);
-    };
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const handleStorageSelectChange = (event: any) => {
-        const value = event.target.value as string;
-        if (value === 'custom') {
-            setIsCustomUrl(true);
-        } else {
-            setIsCustomUrl(false);
-            setStorageSelect(value);
-        }
-    };
-
-    const handleGeneratePrivKey = () => {
-        setPrivKeyInput(generateRandomPrivateKey());
-    };
-
-    const validatePrivateKey = (key: string): string => {
-        const trimmedKey = key.trim();
-        if (!/^([a-f0-9]{64})$/.test(trimmedKey)) {
-            return 'Private key must be a 64-character lowercase hex string.';
-        }
-        return '';
-    };
-
-    const validateStorageURL = (url: string): string => {
-        if (!url) {
-            return 'Storage URL is required.';
-        }
-        try {
-            // Attempt constructing a URL object
-            new URL(url);
-            return '';
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        } catch (e) {
-            return 'Invalid URL format.';
-        }
-    };
-
-    const handleSubmit = async () => {
-        // Clear previous errors
         setPrivKeyError('');
         setStorageError('');
+    }
 
-        // Validate Private Key
-        const privKeyValidationError = validatePrivateKey(privKeyInput);
-        if (privKeyValidationError) {
-            setPrivKeyError(privKeyValidationError);
+    function startEditConfig(c: WalletConfig) {
+        setEditingId(c.id);
+        setAddingNew(false);
+
+        setCfgName(c.name);
+        setPrivKeyInput(c.privateKey);
+        setNetworkInput(c.network);
+        setStorageInput(c.storage);
+        setPrivKeyError('');
+        setStorageError('');
+    }
+
+    async function handleSaveConfig() {
+        // Validate PK
+        const pkErr = validatePrivateKey(privKeyInput.trim());
+        if (pkErr) {
+            setPrivKeyError(pkErr);
+            return;
+        }
+        // Validate storage
+        if (!storageInput.trim()) {
+            setStorageError('Must provide a storage URL');
             return;
         }
 
-        // Validate Storage URL (if isCustomUrl, we rely on user input; otherwise use selection)
-        const currentStorage = isCustomUrl ? storageInput.trim() : storageSelect.trim();
-        const storageValidationError = validateStorageURL(currentStorage);
-        if (storageValidationError) {
-            setStorageError(storageValidationError);
-            return;
-        }
-
-        // All validations passed
-        setIsLoading(true);
         try {
-            localStorage.setItem('brc100privkey', privKeyInput.trim());
-            localStorage.setItem('brc100storage', currentStorage);
-            localStorage.setItem('brc100network', networkInput);
-
-            const newWallet = await makeWallet(networkInput, privKeyInput.trim(), currentStorage);
-            setWallet(newWallet);
-            navigate('/actions');
-        } catch (error) {
-            // Potentially set an error message if makeWallet fails
-            console.error(error);
-        } finally {
-            setIsLoading(false);
+            new URL(storageInput.trim());
+        } catch {
+            setStorageError('Invalid URL format');
+            return;
         }
-    };
 
-    const storageOptions = networkInput === 'main'
-        ? mainnetStorageOptions
-        : testnetStorageOptions;
+        if (!cfgName.trim()) {
+            // Could do other validations
+            setStorageError('Must provide a name');
+            return;
+        }
+
+        // Now save
+        if (editingId) {
+            // Update existing
+            const updated = updateConfig(editingId, {
+                name: cfgName.trim(),
+                privateKey: privKeyInput.trim(),
+                network: networkInput,
+                storage: storageInput.trim()
+            });
+            if (!updated) {
+                console.error('Error: config not found or not updated');
+            }
+        } else {
+            // Add new
+            addNewConfig(
+                cfgName.trim(),
+                privKeyInput.trim(),
+                networkInput,
+                storageInput.trim()
+            );
+        }
+        refreshConfigs();
+        handleCloseDialog();
+    }
+
+    function handleCloseDialog() {
+        setAddingNew(false);
+        setEditingId(null);
+    }
+
+    function onRemoveConfig(id: string) {
+        removeConfig(id);
+        refreshConfigs();
+    }
+
+    async function onUseConfig(id: string) {
+        // pickActiveConfig will build the wallet and set in context
+        await pickActiveConfig(id);
+        navigate('/actions');
+    }
 
     return (
         <Box
             display="flex"
             justifyContent="center"
-            alignItems="center"
+            alignItems="flex-start"
             minHeight="100vh"
-            sx={{ px: 2 }}
+            sx={{ px: 2, py: 4 }}
         >
             <Paper
                 sx={{
                     p: 4,
                     width: '100%',
-                    maxWidth: 500,
+                    maxWidth: 600,
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: 2
+                    gap: 3
                 }}
             >
                 <Typography variant="h5" gutterBottom>
-                    Configure Your Wallet
+                    Manage Wallet Configurations
                 </Typography>
 
-                {/* Network Selection */}
-                <FormControl fullWidth>
-                    <InputLabel>Network</InputLabel>
-                    <Select
-                        value={networkInput}
-                        label="Network"
-                        onChange={handleNetworkChange}
-                    >
-                        <MenuItem value="main">Mainnet</MenuItem>
-                        <MenuItem value="test">Testnet</MenuItem>
-                    </Select>
-                </FormControl>
+                {configs.length === 0 && (
+                    <Typography>No configurations saved yet. Add one below.</Typography>
+                )}
+                <Stack spacing={1}>
+                    {configs.map((c) => {
+                        const domain = parseDomain(c.storage);
+                        return (
+                            <Box
+                                key={c.id}
+                                sx={{
+                                    border: '1px solid #ccc',
+                                    borderRadius: 1,
+                                    p: 2,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between'
+                                }}
+                            >
+                                <Box>
+                                    <Typography fontWeight="bold">{c.name}</Typography>
+                                    <Typography variant="body2">
+                                        {c.network.toUpperCase()} | {domain} | PubKeySuffix:
+                                        <strong>••••{c.pubKeySuffix}</strong>
+                                    </Typography>
+                                </Box>
+                                <Stack direction="row" spacing={1}>
+                                    <IconButton onClick={() => startEditConfig(c)}>
+                                        <EditIcon />
+                                    </IconButton>
+                                    <IconButton onClick={() => onRemoveConfig(c.id)}>
+                                        <DeleteIcon />
+                                    </IconButton>
+                                    <Button variant="contained" onClick={() => onUseConfig(c.id)}>
+                                        Use
+                                    </Button>
+                                </Stack>
+                            </Box>
+                        );
+                    })}
+                </Stack>
 
-                {/* Private Key Input */}
-                <Box display="flex" flexDirection="column" gap={1}>
-                    <TextField
-                        label="Private Key (64-char hex)"
-                        fullWidth
-                        value={privKeyInput}
-                        onChange={(e) => setPrivKeyInput(e.target.value)}
-                        error={!!privKeyError}
-                        helperText={privKeyError}
-                    />
+                <Box textAlign="right">
                     <Button
                         variant="outlined"
-                        onClick={handleGeneratePrivKey}
-                        sx={{ alignSelf: 'flex-start' }}
+                        startIcon={<AddIcon />}
+                        onClick={startAddConfig}
                     >
-                        Generate Random Key
-                    </Button>
-                </Box>
-
-                {/* Storage Selection */}
-                <FormControl fullWidth error={!!storageError}>
-                    <InputLabel>Storage Server</InputLabel>
-                    <Select
-                        value={isCustomUrl ? 'custom' : storageSelect}
-                        label="Storage Server"
-                        onChange={handleStorageSelectChange}
-                    >
-                        {storageOptions.map((opt) => (
-                            <MenuItem key={opt} value={opt}>
-                                {opt}
-                            </MenuItem>
-                        ))}
-                        <MenuItem value="custom">Custom</MenuItem>
-                    </Select>
-                    {!!storageError && <FormHelperText>{storageError}</FormHelperText>}
-                </FormControl>
-
-                {/* Custom Storage URL TextField (shown only if Custom is selected) */}
-                {isCustomUrl && (
-                    <TextField
-                        label="Custom Storage URL"
-                        fullWidth
-                        value={storageInput}
-                        onChange={(e) => setStorageInput(e.target.value)}
-                        error={!!storageError}
-                    />
-                )}
-
-                {/* Submit Button + Loading Indicator */}
-                <Box
-                    display="flex"
-                    justifyContent="flex-end"
-                    alignItems="center"
-                    gap={2}
-                    mt={2}
-                >
-                    {isLoading && <CircularProgress size={24} />}
-                    <Button
-                        variant="contained"
-                        onClick={handleSubmit}
-                        disabled={isLoading}
-                    >
-                        Save & Continue
+                        Add New
                     </Button>
                 </Box>
             </Paper>
+
+            {/* New/Edit Config Dialog */}
+            {(addingNew || editingId) && (
+                <Dialog open onClose={handleCloseDialog} maxWidth="sm" fullWidth>
+                    <DialogTitle>
+                        {editingId ? 'Edit Configuration' : 'Add New Configuration'}
+                    </DialogTitle>
+                    <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+                        <TextField
+                            label="Name"
+                            value={cfgName}
+                            onChange={(e) => setCfgName(e.target.value)}
+                        />
+                        <TextField
+                            label="Private Key (64 hex)"
+                            value={privKeyInput}
+                            error={!!privKeyError}
+                            helperText={privKeyError}
+                            onChange={(e) => setPrivKeyInput(e.target.value)}
+                        />
+                        <Button
+                            variant="outlined"
+                            onClick={() => setPrivKeyInput(generateRandomPrivateKey())}
+                        >
+                            Generate Random Key
+                        </Button>
+                        <FormControl>
+                            <InputLabel>Network</InputLabel>
+                            <Select
+                                label="Network"
+                                value={networkInput}
+                                onChange={(e) =>
+                                    setNetworkInput(e.target.value === 'main' ? 'main' : 'test')
+                                }
+                            >
+                                <MenuItem value="main">Mainnet</MenuItem>
+                                <MenuItem value="test">Testnet</MenuItem>
+                            </Select>
+                        </FormControl>
+
+                        <StorageSelectUI
+                            network={networkInput}
+                            value={storageInput}
+                            onChange={(newVal) => setStorageInput(newVal)}
+                            storageError={storageError}
+                            setStorageError={setStorageError}
+                        />
+                    </DialogContent>
+                    <DialogActions>
+                        <Button onClick={handleCloseDialog}>Cancel</Button>
+                        <Button variant="contained" onClick={handleSaveConfig}>
+                            Save
+                        </Button>
+                    </DialogActions>
+                </Dialog>
+            )}
+        </Box>
+    );
+}
+
+/**
+ * A subcomponent that uses "knownHosts" and merges custom stored hosts for the chosen network
+ * to let the user pick from a dropdown or type in a custom host name & URL.
+ * For simplicity, we show a simple approach here.
+ */
+function StorageSelectUI(props: {
+    network: 'main' | 'test';
+    value: string;
+    onChange: (url: string) => void;
+    storageError: string;
+    setStorageError: (err: string) => void;
+}) {
+    const { network, value, onChange, storageError, setStorageError } = props;
+    const [isCustom, setIsCustom] = useState(false);
+
+    const hostOptions = knownHosts.filter((h) => h.network === network);
+
+    useEffect(() => {
+        // If value is one of knownHosts, not custom
+        const matched = hostOptions.find((h) => h.url === value);
+        setIsCustom(!matched);
+    }, [value]);
+
+    function handleSelect(e: any) {
+        const v = e.target.value;
+        if (v === 'custom') {
+            setIsCustom(true);
+            onChange('');
+            setStorageError('');
+        } else {
+            setIsCustom(false);
+            onChange(v);
+            setStorageError('');
+        }
+    }
+
+    return (
+        <Box>
+            <FormControl fullWidth error={!!storageError}>
+                <InputLabel>Storage Server</InputLabel>
+                <Select value={isCustom ? 'custom' : value} label="Storage Server" onChange={handleSelect}>
+                    {hostOptions.map((opt) => (
+                        <MenuItem key={opt.url} value={opt.url}>
+                            {opt.name} — {opt.url}
+                        </MenuItem>
+                    ))}
+                    <MenuItem value="custom">Custom</MenuItem>
+                </Select>
+                {storageError && <FormHelperText>{storageError}</FormHelperText>}
+            </FormControl>
+            {isCustom && (
+                <TextField
+                    label="Custom Storage URL"
+                    fullWidth
+                    sx={{ mt: 2 }}
+                    value={value}
+                    onChange={(e) => onChange(e.target.value)}
+                    error={!!storageError}
+                />
+            )}
         </Box>
     );
 }

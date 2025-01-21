@@ -13,10 +13,10 @@ function KeysLinkagePage() {
     const { wallet } = useWallet();
 
     // getPublicKey
-    const [protocolString, setProtocolString] = useState('someProtocol');
-    const [securityLevel, setSecurityLevel] = useState<0 | 1 | 2>(0);
-    const [keyID, setKeyID] = useState('');
-    const [counterparty, setCounterparty] = useState('');
+    const [protocolString, setProtocolString] = useState('demos');
+    const [securityLevel, setSecurityLevel] = useState<0 | 1 | 2>(1);
+    const [keyID, setKeyID] = useState('1');
+    const [counterparty, setCounterparty] = useState('self');
     const [identityKeyChecked, setIdentityKeyChecked] = useState(false);
     const [publicKeyResult, setPublicKeyResult] = useState('');
 

@@ -18,10 +18,10 @@ function CryptoPage() {
     const [encryptResult, setEncryptResult] = useState('');
     const [decryptResult, setDecryptResult] = useState('');
 
-    const [cryptoProtocol, setCryptoProtocol] = useState('encryption-protocol');
+    const [cryptoProtocol, setCryptoProtocol] = useState('demos');
     const [cryptoSecurityLevel, setCryptoSecurityLevel] = useState<0 | 1 | 2>(1);
-    const [cryptoKeyID, setCryptoKeyID] = useState('encrypt-key');
-    const [cryptoCounterparty, setCryptoCounterparty] = useState('anyone');
+    const [cryptoKeyID, setCryptoKeyID] = useState('1');
+    const [cryptoCounterparty, setCryptoCounterparty] = useState('self');
     const [privileged, setPrivileged] = useState(false);
 
     // HMAC

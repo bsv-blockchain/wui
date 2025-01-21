@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import {
     AppBar,
@@ -9,66 +10,260 @@ import {
     ListItemButton,
     ListItemText,
     Box,
-    Container
+    Select,
+    MenuItem,
+    FormControl,
+    InputLabel,
+    useMediaQuery,
+    Divider,
+    ListItemIcon
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
-import { useState } from 'react';
+import StorageIcon from '@mui/icons-material/Storage';
+import CompareArrowsIcon from '@mui/icons-material/CompareArrows';
+import CallSplitIcon from '@mui/icons-material/CallSplit';
+import LockIcon from '@mui/icons-material/Lock';
+import DescriptionIcon from '@mui/icons-material/Description';
+import SettingsIcon from '@mui/icons-material/Settings';
+
+import { useTheme } from '@mui/material/styles';
+import { useWallet } from '../contexts/WalletContext';
+import { getAllConfigs, WalletConfig } from '../utils/configStorage';
+import { parseDomain } from '../utils/miscHelpers';
+
+const drawerWidth = 320;
 
 function MainLayout() {
     const navigate = useNavigate();
-    const [open, setOpen] = useState(false);
+    const theme = useTheme();
+    const isLargeScreen = useMediaQuery(theme.breakpoints.up('md'));
 
-    const navItems = [
-        { name: 'Actions', path: '/actions' },
-        { name: 'Outputs', path: '/outputs' },
-        { name: 'Keys & Linkage', path: '/keys' },
-        { name: 'Crypto', path: '/crypto' },
-        { name: 'Certificates', path: '/certificates' },
-        { name: 'Utilities', path: '/utilities' }
-    ];
+    const [mobileOpen, setMobileOpen] = useState(false);
+    const { pickActiveConfig } = useWallet();
+
+    // We'll load all configs so that the user can switch from the top drop-down
+    const [configs, setConfigs] = useState<WalletConfig[]>([]);
+    const [selectedId, setSelectedId] = useState<string>('');
+
+    useEffect(() => {
+        const c = getAllConfigs();
+        setConfigs(c);
+    }, []);
+
+    // If user changes the active config outside of this component, we might want to re-check.
+    // For simplicity, we do not. You could re-check on an interval or use a separate context event.
 
     const handleDrawerToggle = () => {
-        setOpen((prev) => !prev);
+        setMobileOpen(!mobileOpen);
     };
+    // Build the label for the currently active config
+    let subLabel = '';
+    if (selectedId) {
+        const c = configs.find((cfg) => cfg.id === selectedId);
+        if (c) {
+            const domain = parseDomain(c.storage);
+            subLabel = `${c.network.toUpperCase()} | ${domain}`;
+        }
+    }
 
-    const drawer = (
-        <Box onClick={handleDrawerToggle} sx={{ width: 240 }}>
+    // On mount, we might detect the active config from localStorage
+    useEffect(() => {
+        // Possibly read the active config from localStorage if it is set
+        // But we can also read from the wallet context, which doesn't directly store the config ID.
+        // We'll just do a best-effort approach. If the wallet is set, we can't easily figure out the ID
+        // unless we store it in a hidden place. Let's skip real synchronization for brevity.
+        // We'll set selectedId to the stored active config if we had it:
+        const activeId = localStorage.getItem('brc100ActiveConfig') || '';
+        setSelectedId(activeId);
+    }, []);
+
+    async function handleSelectConfig(newId: string) {
+        if (newId === 'manage') {
+            // user clicked "Manage configs"
+            await pickActiveConfig(null);
+            setSelectedId('');
+            navigate('/');
+            return;
+        }
+        setSelectedId(newId);
+        // load it
+        await pickActiveConfig(newId);
+        // close the drawer if we’re on mobile
+        if (!isLargeScreen) {
+            setMobileOpen(false);
+        }
+    }
+
+    const navItems = [
+        {
+            label: 'Actions',
+            icon: <CompareArrowsIcon />,
+            subtitle: 'Transaction creation & signing',
+            path: '/actions'
+        },
+        {
+            label: 'Outputs',
+            icon: <StorageIcon />,
+            subtitle: 'UTXOs & baskets',
+            path: '/outputs'
+        },
+        {
+            label: 'Keys & Linkage',
+            icon: <CallSplitIcon />,
+            subtitle: 'Public keys & revelations',
+            path: '/keys'
+        },
+        {
+            label: 'Crypto',
+            icon: <LockIcon />,
+            subtitle: 'Encrypt, decrypt, sign, HMAC, etc.',
+            path: '/crypto'
+        },
+        {
+            label: 'Certificates',
+            icon: <DescriptionIcon />,
+            subtitle: 'Issuance & proving identity docs',
+            path: '/certificates'
+        },
+        {
+            label: 'Utilities',
+            icon: <SettingsIcon />,
+            subtitle: 'Height, network, version, etc.',
+            path: '/utilities'
+        }
+    ];
+
+    const drawerContent = (
+        <Box
+            sx={{
+                width: isLargeScreen ? 320 : 240,
+                display: 'flex',
+                flexDirection: 'column',
+                height: '100%'
+            }}
+        >
+            {/* Config selection at the top */}
+            <Box sx={{ p: 2 }}>
+                <FormControl fullWidth variant="outlined" size="small">
+                    <InputLabel>Active Config</InputLabel>
+                    <Select
+                        label="Active Config"
+                        value={selectedId || ''}
+                        onChange={(e) => handleSelectConfig(e.target.value)}
+                    >
+                        {configs.map((c) => (
+                            <MenuItem key={c.id} value={c.id}>
+                                {c.name} (••••{c.pubKeySuffix})
+                            </MenuItem>
+                        ))}
+                        <MenuItem value="manage">Manage Configs...</MenuItem>
+                    </Select>
+                </FormControl>
+                {selectedId && (
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                        {subLabel}
+                    </Typography>
+                )}
+            </Box>
+            <Divider />
+
+            {/* Nav links */}
             <List>
                 {navItems.map((item) => (
                     <ListItemButton
                         key={item.path}
-                        onClick={() => navigate(item.path)}
+                        onClick={() => {
+                            navigate(item.path);
+                            if (!isLargeScreen) setMobileOpen(false);
+                        }}
                     >
-                        <ListItemText primary={item.name} />
+                        <ListItemIcon>{item.icon}</ListItemIcon>
+                        <ListItemText
+                            primary={item.label}
+                            secondary={item.subtitle}
+                        />
                     </ListItemButton>
                 ))}
             </List>
+            <Box sx={{ flex: 1 }} />
+
+            {/* Footer with version/link info */}
+            <Box sx={{ p: 2, borderTop: '1px solid #ddd' }}>
+                <Typography variant="body2" align="center">
+                    v1.0.0 – &copy; 2025 &nbsp;
+                    <a
+                        href="https://github.com/bitcoin-sv/BRCs/blob/master/wallet/0100.md"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >
+                        BRC-100 Spec
+                    </a>
+                </Typography>
+            </Box>
         </Box>
     );
 
     return (
-        <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-            <AppBar position="static">
-                <Toolbar>
-                    <IconButton
-                        edge="start"
-                        color="inherit"
-                        aria-label="menu"
-                        onClick={handleDrawerToggle}
-                        sx={{ mr: 2 }}
-                    >
-                        <MenuIcon />
-                    </IconButton>
-                    <Typography variant="h6">BRC-100 Wallet UI</Typography>
-                </Toolbar>
-            </AppBar>
-            <Drawer open={open} onClose={handleDrawerToggle}>
-                {drawer}
-            </Drawer>
+        <Box sx={{ display: 'flex' }}>
+            {/* If large screen, permanent drawer; otherwise temporary. */}
+            {isLargeScreen ? (
+                <Drawer
+                    variant="permanent"
+                    sx={{
+                        width: drawerWidth,
+                        flexShrink: 0,
+                        '& .MuiDrawer-paper': {
+                            width: drawerWidth,
+                            boxSizing: 'border-box'
+                        }
+                    }}
+                    open
+                >
+                    {drawerContent}
+                </Drawer>
+            ) : (
+                <>
+                    <AppBar position="fixed">
+                        <Toolbar>
+                            <IconButton
+                                edge="start"
+                                color="inherit"
+                                aria-label="menu"
+                                onClick={handleDrawerToggle}
+                            >
+                                <MenuIcon />
+                            </IconButton>
+                            <Typography variant="h6" noWrap component="div">
+                                BRC-100 Wallet UI
+                            </Typography>
+                        </Toolbar>
+                    </AppBar>
 
-            <Container sx={{ flex: 1, py: 3 }}>
+                    <Drawer
+                        variant="temporary"
+                        open={mobileOpen}
+                        onClose={handleDrawerToggle}
+                        ModalProps={{ keepMounted: true }}
+                    >
+                        {drawerContent}
+                    </Drawer>
+                </>
+            )}
+
+            {/* The main content area – offset if permanent drawer */}
+            <Box
+                component="main"
+                sx={{
+                    flexGrow: 1,
+                    margin: 'auto',
+                    maxWidth: '1280px',
+                    // ml: { md: `${drawerWidth}px` },
+                    width: { md: `calc(100% - ${drawerWidth}px)` },
+                    p: 2
+                }}
+            >
                 <Outlet />
-            </Container>
+            </Box>
         </Box>
     );
 }
