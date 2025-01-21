@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     Box,
@@ -68,7 +68,8 @@ function HomePage() {
         }
     }, [storageSelect, isCustomUrl]);
 
-    const handleNetworkChange = (event: React.ChangeEvent<{ value: unknown }>) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const handleNetworkChange = (event: any) => {
         const value = event.target.value as 'main' | 'test';
         setNetworkInput(value);
         // Reset storage selection and custom
@@ -77,7 +78,8 @@ function HomePage() {
         setIsCustomUrl(false);
     };
 
-    const handleStorageSelectChange = (event: React.ChangeEvent<{ value: unknown }>) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const handleStorageSelectChange = (event: any) => {
         const value = event.target.value as string;
         if (value === 'custom') {
             setIsCustomUrl(true);
