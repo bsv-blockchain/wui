@@ -110,13 +110,13 @@ function MainLayout() {
         {
             label: 'Keys & Linkage',
             icon: <CallSplitIcon />,
-            subtitle: 'Public keys & revelations',
+            subtitle: 'Public keys & revelation',
             path: '/keys'
         },
         {
-            label: 'Crypto',
+            label: 'Cryptography & Signatures',
             icon: <LockIcon />,
-            subtitle: 'Encrypt, decrypt, sign, HMAC, etc.',
+            subtitle: 'Encrypt, decrypt, sign, HMAC',
             path: '/crypto'
         },
         {
@@ -136,14 +136,16 @@ function MainLayout() {
     const drawerContent = (
         <Box
             sx={{
-                width: isLargeScreen ? 320 : 240,
+                width: isLargeScreen ? 320 : 320,
                 display: 'flex',
                 flexDirection: 'column',
                 height: '100%'
             }}
         >
             {/* Config selection at the top */}
-            <Box sx={{ p: 2 }}>
+            <Box sx={{ p: 4, pt: 6 }}>
+                <Typography align='center' variant='h1'>WAL</Typography>
+                <Typography align='center' variant='subtitle1' color='textSecondary' sx={{ mb: 4 }}>Wallet Administration Layer</Typography>
                 <FormControl fullWidth variant="outlined" size="small">
                     <InputLabel>Active Config</InputLabel>
                     <Select
@@ -256,7 +258,7 @@ function MainLayout() {
                 sx={{
                     flexGrow: 1,
                     margin: 'auto',
-                    maxWidth: '1280px',
+                    maxWidth: '1560px',
                     // ml: { md: `${drawerWidth}px` },
                     width: { md: `calc(100% - ${drawerWidth}px)` },
                     p: 2

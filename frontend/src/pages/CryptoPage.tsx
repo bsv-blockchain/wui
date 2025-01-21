@@ -168,16 +168,16 @@ function CryptoPage() {
             <Paper sx={{ p: 2, mb: 2 }}>
                 <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
                     <TextField
-                        label="Protocol"
-                        value={cryptoProtocol}
-                        onChange={(e) => setCryptoProtocol(e.target.value)}
-                    />
-                    <TextField
-                        label="SecLevel"
+                        label="Security Level"
                         type="number"
                         value={cryptoSecurityLevel}
                         onChange={(e) => setCryptoSecurityLevel(parseInt(e.target.value, 10) as 0 | 1 | 2)}
-                        sx={{ width: 100 }}
+                        sx={{ width: 150 }}
+                    />
+                    <TextField
+                        label="Protocol"
+                        value={cryptoProtocol}
+                        onChange={(e) => setCryptoProtocol(e.target.value)}
                     />
                     <TextField
                         label="KeyID"

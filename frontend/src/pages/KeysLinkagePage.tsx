@@ -164,7 +164,7 @@ function KeysLinkagePage() {
                 <Stack direction="column" spacing={2} sx={{ mt: 2 }}>
                     <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
                         <TextField
-                            label="SecLevel"
+                            label="Security Level"
                             type="number"
                             value={specificLevel}
                             onChange={(e) => setSpecificLevel(parseInt(e.target.value, 10) as 0 | 1 | 2)}

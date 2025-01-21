@@ -86,18 +86,18 @@ function UtilitiesPage() {
             <Paper sx={{ p: 2, mb: 2 }}>
                 <Stack direction="row" spacing={2} alignItems="center">
                     <Button variant="contained" onClick={handleCheckAuth}>
-                        isAuthenticated
+                        Is Authenticated?
                     </Button>
                     <Button variant="contained" onClick={handleWaitAuth}>
-                        waitForAuthentication
+                        Wait For Authentication
                     </Button>
-                    <Typography>{authStatus}</Typography>
+                    <Typography>Status: {authStatus}</Typography>
                 </Stack>
             </Paper>
             <Paper sx={{ p: 2, mb: 2 }}>
                 <Stack direction="row" spacing={2} alignItems="center">
                     <Button variant="contained" onClick={handleGetHeight}>
-                        getHeight
+                        Get Height
                     </Button>
                     <Typography>Result: {heightResult}</Typography>
                 </Stack>
@@ -111,7 +111,7 @@ function UtilitiesPage() {
                         sx={{ width: 140 }}
                     />
                     <Button variant="contained" onClick={handleGetHeaderForHeight}>
-                        getHeaderForHeight
+                        Get Header For Height
                     </Button>
                     <Typography>Header: {headerResult}</Typography>
                 </Stack>
@@ -119,7 +119,7 @@ function UtilitiesPage() {
             <Paper sx={{ p: 2, mb: 2 }}>
                 <Stack direction="row" spacing={2} alignItems="center">
                     <Button variant="contained" onClick={handleGetNetwork}>
-                        getNetwork
+                        Get Network
                     </Button>
                     <Typography>Result: {networkResult}</Typography>
                 </Stack>
@@ -127,7 +127,7 @@ function UtilitiesPage() {
             <Paper sx={{ p: 2 }}>
                 <Stack direction="row" spacing={2} alignItems="center">
                     <Button variant="contained" onClick={handleGetVersion}>
-                        getVersion
+                        Get Version
                     </Button>
                     <Typography>Result: {versionResult}</Typography>
                 </Stack>
