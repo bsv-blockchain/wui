@@ -18,6 +18,8 @@ function UtilitiesPage() {
     const [headerResult, setHeaderResult] = useState('');
     const [networkResult, setNetworkResult] = useState('');
     const [versionResult, setVersionResult] = useState('');
+    const [basketName, setBasketName] = useState<string>('default');
+    const [basketResult, setBasketResult] = useState('');
 
     const handleCheckAuth = async () => {
         if (!wallet) return;
@@ -44,6 +46,16 @@ function UtilitiesPage() {
         try {
             const resp = await wallet.getHeight({});
             setHeightResult(String(resp.height));
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
+    const handleComputeValueForBasket = async () => {
+        if (!wallet || !basketName) return;
+        try {
+            const resp = await wallet.listOutputs({ basket: basketName });
+            setBasketResult(String(resp.outputs.reduce((a, e) => a + e.satoshis, 0)));
         } catch (err) {
             console.error(err);
         }
@@ -92,6 +104,20 @@ function UtilitiesPage() {
                         Wait For Authentication
                     </Button>
                     <Typography>Status: {authStatus}</Typography>
+                </Stack>
+            </Paper>
+            <Paper sx={{ p: 2, mb: 2 }}>
+                <Stack direction="row" spacing={2} alignItems="center">
+                    <TextField
+                        label="Basket Name"
+                        value={basketName}
+                        onChange={(e) => setBasketName(e.target.value)}
+                        sx={{ width: 200 }}
+                    />
+                    <Button variant="contained" onClick={handleComputeValueForBasket}>
+                        Compute Satoshi Value in Basket
+                    </Button>
+                    <Typography>Satoshis in Basket: {basketResult}</Typography>
                 </Stack>
             </Paper>
             <Paper sx={{ p: 2, mb: 2 }}>
