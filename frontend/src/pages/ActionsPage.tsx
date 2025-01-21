@@ -388,6 +388,10 @@ function ActionsPage() {
         return result;
     }
 
+    function bytesToHex(arr: number[]): string {
+        return arr.map((b) => b.toString(16).padStart(2, '0')).join('');
+    }
+
     /**************************************************
      * Render
      **************************************************/
@@ -558,7 +562,12 @@ function ActionsPage() {
             </Paper>
 
             {/** CREATE ACTION MODAL */}
-            <Dialog open={createModalOpen} onClose={handleCloseCreateModal} fullWidth maxWidth="lg">
+            <Dialog
+                open={createModalOpen}
+                onClose={handleCloseCreateModal}
+                fullWidth
+                maxWidth="lg"
+            >
                 <DialogTitle>Create Action</DialogTitle>
                 <DialogContent>
                     {createStep === 'form' && (
@@ -675,10 +684,7 @@ function ActionsPage() {
                     )}
                     {createStep === 'result' && (
                         <>
-                            <Button
-                                variant="contained"
-                                onClick={handleCloseCreateModal}
-                            >
+                            <Button variant="contained" onClick={handleCloseCreateModal}>
                                 Close
                             </Button>
                         </>
@@ -930,13 +936,6 @@ function ActionsPage() {
             return newArr;
         });
     }
-
-    /**************************************************
-     * Utility for sign-phase to hex
-     **************************************************/
-    function bytesToHex(arr: number[]): string {
-        return arr.map((b) => b.toString(16).padStart(2, '0')).join('');
-    }
 }
 
 /**************************************************
@@ -978,10 +977,6 @@ function CreateActionFormContent(props: {
      * Input Management
      **************************************************/
     function addInput() {
-        // Only add if there's at least an outpoint + description
-        if (!tempInput.outpoint.trim() || !tempInput.inputDescription.trim()) {
-            return;
-        }
         setCreateData((prev) => ({
             ...prev,
             inputs: [
@@ -1021,10 +1016,6 @@ function CreateActionFormContent(props: {
      * Output Management
      **************************************************/
     function addOutput() {
-        // Must have a lockingScript + outputDescription
-        if (!tempOutput.lockingScript.trim() || !tempOutput.outputDescription.trim()) {
-            return;
-        }
         setCreateData((prev) => ({
             ...prev,
             outputs: [
@@ -1513,7 +1504,7 @@ function CreateActionFormContent(props: {
                     Add New Output
                 </Typography>
                 <Grid container spacing={2}>
-                    <Grid item xs={12} sm={12}>
+                    <Grid item xs={12}>
                         <TextField
                             label="Locking Script"
                             multiline
