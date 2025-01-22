@@ -27,7 +27,9 @@ import {
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import InputIcon from '@mui/icons-material/Input';
+import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
+import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import { useWallet } from '../contexts/WalletContext';
 
 interface ActionItem {
@@ -950,8 +952,17 @@ function CreateActionFormContent(props: {
 }) {
     const { createData, setCreateData, createLoading, createError } = props;
 
-    // "Temp" state for adding a new input
-    const [tempInput, setTempInput] = useState({
+    // Track if both arrays are empty (for warning at the bottom).
+    const bothArraysEmpty =
+        createData.inputs.length === 0 && createData.outputs.length === 0;
+
+    /**************************************************
+     * Dialog states for Inputs
+     **************************************************/
+    const [inputDialogOpen, setInputDialogOpen] = useState(false);
+    // If editing, store the index; if adding, store null
+    const [editingInputIndex, setEditingInputIndex] = useState<number | null>(null);
+    const [inputFormState, setInputFormState] = useState({
         outpoint: '',
         inputDescription: '',
         unlockingScript: '',
@@ -959,51 +970,83 @@ function CreateActionFormContent(props: {
         sequenceNumber: ''
     });
 
-    // "Temp" state for adding a new output
-    const [tempOutput, setTempOutput] = useState({
-        lockingScript: '',
-        satoshis: 1000,
-        outputDescription: '',
-        basket: '',
-        customInstructions: '',
-        tags: ''
-    });
-
-    // At least one input or output is required
-    const bothArraysEmpty =
-        createData.inputs.length === 0 && createData.outputs.length === 0;
-
-    /**************************************************
-     * Input Management
-     **************************************************/
-    function addInput() {
-        setCreateData((prev) => ({
-            ...prev,
-            inputs: [
-                ...prev.inputs,
-                {
-                    outpoint: tempInput.outpoint.trim(),
-                    inputDescription: tempInput.inputDescription.trim(),
-                    unlockingScript: tempInput.unlockingScript.trim() || undefined,
-                    unlockingScriptLength: tempInput.unlockingScriptLength
-                        ? parseInt(tempInput.unlockingScriptLength, 10)
-                        : undefined,
-                    sequenceNumber: tempInput.sequenceNumber
-                        ? parseInt(tempInput.sequenceNumber, 10)
-                        : undefined
-                }
-            ]
-        }));
-        // Reset local form
-        setTempInput({
+    // Open dialog for adding a new input
+    function handleAddInputDialogOpen() {
+        setEditingInputIndex(null);
+        setInputFormState({
             outpoint: '',
             inputDescription: '',
             unlockingScript: '',
             unlockingScriptLength: '',
             sequenceNumber: ''
         });
+        setInputDialogOpen(true);
     }
 
+    // Open dialog for editing an existing input
+    function handleEditInputDialogOpen(index: number) {
+        const inp = createData.inputs[index];
+        setEditingInputIndex(index);
+        setInputFormState({
+            outpoint: inp.outpoint,
+            inputDescription: inp.inputDescription,
+            unlockingScript: inp.unlockingScript || '',
+            unlockingScriptLength: inp.unlockingScriptLength
+                ? String(inp.unlockingScriptLength)
+                : '',
+            sequenceNumber: inp.sequenceNumber ? String(inp.sequenceNumber) : ''
+        });
+        setInputDialogOpen(true);
+    }
+
+    // Save or update input on dialog confirm
+    function handleSaveInput() {
+        if (editingInputIndex === null) {
+            // This is a new input
+            setCreateData((prev) => ({
+                ...prev,
+                inputs: [
+                    ...prev.inputs,
+                    {
+                        outpoint: inputFormState.outpoint.trim(),
+                        inputDescription: inputFormState.inputDescription.trim(),
+                        unlockingScript: inputFormState.unlockingScript.trim() || undefined,
+                        unlockingScriptLength: inputFormState.unlockingScriptLength
+                            ? parseInt(inputFormState.unlockingScriptLength, 10)
+                            : undefined,
+                        sequenceNumber: inputFormState.sequenceNumber
+                            ? parseInt(inputFormState.sequenceNumber, 10)
+                            : undefined
+                    }
+                ]
+            }));
+        } else {
+            // Editing existing input
+            setCreateData((prev) => {
+                const newInputs = [...prev.inputs];
+                newInputs[editingInputIndex] = {
+                    outpoint: inputFormState.outpoint.trim(),
+                    inputDescription: inputFormState.inputDescription.trim(),
+                    unlockingScript: inputFormState.unlockingScript.trim() || undefined,
+                    unlockingScriptLength: inputFormState.unlockingScriptLength
+                        ? parseInt(inputFormState.unlockingScriptLength, 10)
+                        : undefined,
+                    sequenceNumber: inputFormState.sequenceNumber
+                        ? parseInt(inputFormState.sequenceNumber, 10)
+                        : undefined
+                };
+                return { ...prev, inputs: newInputs };
+            });
+        }
+        setInputDialogOpen(false);
+    }
+
+    // Cancel input dialog
+    function handleCancelInputDialog() {
+        setInputDialogOpen(false);
+    }
+
+    // Remove an input
     function removeInput(index: number) {
         setCreateData((prev) => {
             const newArr = [...prev.inputs];
@@ -1013,41 +1056,89 @@ function CreateActionFormContent(props: {
     }
 
     /**************************************************
-     * Output Management
+     * Dialog states for Outputs
      **************************************************/
-    function addOutput() {
-        setCreateData((prev) => ({
-            ...prev,
-            outputs: [
-                ...prev.outputs,
-                {
-                    lockingScript: tempOutput.lockingScript.trim(),
-                    satoshis: tempOutput.satoshis,
-                    outputDescription: tempOutput.outputDescription.trim(),
-                    basket: tempOutput.basket ? tempOutput.basket.trim() : undefined,
-                    customInstructions: tempOutput.customInstructions
-                        ? tempOutput.customInstructions.trim()
-                        : undefined,
-                    tags: tempOutput.tags
-                        ? tempOutput.tags
-                            .split(',')
-                            .map((t) => t.trim())
-                            .filter(Boolean)
-                        : undefined
-                }
-            ]
-        }));
-        // Reset local form
-        setTempOutput({
+    const [outputDialogOpen, setOutputDialogOpen] = useState(false);
+    const [editingOutputIndex, setEditingOutputIndex] = useState<number | null>(
+        null
+    );
+    const [outputFormState, setOutputFormState] = useState({
+        lockingScript: '',
+        satoshis: '1000',
+        outputDescription: '',
+        basket: '',
+        customInstructions: '',
+        tags: ''
+    });
+
+    // Open dialog for adding a new output
+    function handleAddOutputDialogOpen() {
+        setEditingOutputIndex(null);
+        setOutputFormState({
             lockingScript: '',
-            satoshis: 1000,
+            satoshis: '1000',
             outputDescription: '',
             basket: '',
             customInstructions: '',
             tags: ''
         });
+        setOutputDialogOpen(true);
     }
 
+    // Open dialog for editing an existing output
+    function handleEditOutputDialogOpen(index: number) {
+        const out = createData.outputs[index];
+        setEditingOutputIndex(index);
+        setOutputFormState({
+            lockingScript: out.lockingScript,
+            satoshis: String(out.satoshis),
+            outputDescription: out.outputDescription,
+            basket: out.basket || '',
+            customInstructions: out.customInstructions || '',
+            tags: out.tags?.join(', ') || ''
+        });
+        setOutputDialogOpen(true);
+    }
+
+    // Save or update output on dialog confirm
+    function handleSaveOutput() {
+        const newOutput = {
+            lockingScript: outputFormState.lockingScript.trim(),
+            satoshis: parseInt(outputFormState.satoshis, 10) || 0,
+            outputDescription: outputFormState.outputDescription.trim(),
+            basket: outputFormState.basket.trim() || undefined,
+            customInstructions: outputFormState.customInstructions.trim() || undefined,
+            tags: outputFormState.tags
+                ? outputFormState.tags
+                    .split(',')
+                    .map((t) => t.trim())
+                    .filter(Boolean)
+                : undefined
+        };
+
+        if (editingOutputIndex === null) {
+            // New output
+            setCreateData((prev) => ({
+                ...prev,
+                outputs: [...prev.outputs, newOutput]
+            }));
+        } else {
+            // Editing existing output
+            setCreateData((prev) => {
+                const newOutputs = [...prev.outputs];
+                newOutputs[editingOutputIndex] = newOutput;
+                return { ...prev, outputs: newOutputs };
+            });
+        }
+        setOutputDialogOpen(false);
+    }
+
+    // Cancel output dialog
+    function handleCancelOutputDialog() {
+        setOutputDialogOpen(false);
+    }
+
+    // Remove an output
     function removeOutput(index: number) {
         setCreateData((prev) => {
             const newArr = [...prev.outputs];
@@ -1056,9 +1147,6 @@ function CreateActionFormContent(props: {
         });
     }
 
-    /**************************************************
-     * Render
-     **************************************************/
     return (
         <Box sx={{ mt: 1 }}>
             {/* Display any top-level error from the parent if present */}
@@ -1103,7 +1191,9 @@ function CreateActionFormContent(props: {
                             type="number"
                             value={createData.lockTime || ''}
                             onChange={(e) => {
-                                const val = e.target.value ? parseInt(e.target.value, 10) : undefined;
+                                const val = e.target.value
+                                    ? parseInt(e.target.value, 10)
+                                    : undefined;
                                 setCreateData((prev) => ({ ...prev, lockTime: val }));
                             }}
                             fullWidth
@@ -1116,7 +1206,9 @@ function CreateActionFormContent(props: {
                             type="number"
                             value={createData.version || ''}
                             onChange={(e) => {
-                                const val = e.target.value ? parseInt(e.target.value, 10) : undefined;
+                                const val = e.target.value
+                                    ? parseInt(e.target.value, 10)
+                                    : undefined;
                                 setCreateData((prev) => ({ ...prev, version: val }));
                             }}
                             fullWidth
@@ -1243,31 +1335,52 @@ function CreateActionFormContent(props: {
             <Divider sx={{ my: 2 }} />
 
             {/* Inputs */}
-            <Typography variant="h6" gutterBottom>
-                Inputs
-            </Typography>
+            <Box
+                display="flex"
+                justifyContent="space-between"
+                alignItems="center"
+                mb={1}
+            >
+                <Typography variant="h6">Inputs</Typography>
+                <Button
+                    variant="contained"
+                    startIcon={<AddCircleOutlineIcon />}
+                    onClick={handleAddInputDialogOpen}
+                    disabled={createLoading}
+                >
+                    Add Input
+                </Button>
+            </Box>
 
             {createData.inputs.map((inp, idx) => (
                 <Paper
                     key={idx}
-                    sx={{
-                        p: 2,
-                        mb: 1,
-                        backgroundColor: '#f9f9f9',
-                        position: 'relative'
-                    }}
+                    sx={{ p: 2, mb: 1, backgroundColor: '#f9f9f9', position: 'relative' }}
                     variant="outlined"
                 >
-                    <IconButton
-                        size="small"
-                        color="warning"
+                    <Box
+                        display="flex"
+                        justifyContent="flex-end"
+                        alignItems="center"
                         sx={{ position: 'absolute', top: 4, right: 4 }}
-                        onClick={() => removeInput(idx)}
-                        disabled={createLoading}
                     >
-                        <DeleteIcon fontSize="small" />
-                    </IconButton>
-
+                        <IconButton
+                            size="small"
+                            color="primary"
+                            onClick={() => handleEditInputDialogOpen(idx)}
+                            disabled={createLoading}
+                        >
+                            <EditIcon fontSize="small" />
+                        </IconButton>
+                        <IconButton
+                            size="small"
+                            color="warning"
+                            onClick={() => removeInput(idx)}
+                            disabled={createLoading}
+                        >
+                            <DeleteIcon fontSize="small" />
+                        </IconButton>
+                    </Box>
                     <Grid container spacing={2}>
                         <Grid item xs={12} sm={6}>
                             <TextField
@@ -1321,102 +1434,25 @@ function CreateActionFormContent(props: {
                 </Paper>
             ))}
 
-            <Box
-                sx={{
-                    p: 2,
-                    border: '1px dashed #ccc',
-                    borderRadius: 1,
-                    mb: 2,
-                    mt: 2
-                }}
-            >
-                <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                    Add New Input
-                </Typography>
-                <Grid container spacing={2}>
-                    <Grid item xs={12} sm={6}>
-                        <TextField
-                            label="Outpoint (txid.index)"
-                            value={tempInput.outpoint}
-                            onChange={(e) =>
-                                setTempInput((prev) => ({ ...prev, outpoint: e.target.value }))
-                            }
-                            disabled={createLoading}
-                            fullWidth
-                        />
-                    </Grid>
-                    <Grid item xs={12} sm={6}>
-                        <TextField
-                            label="Input Description"
-                            value={tempInput.inputDescription}
-                            onChange={(e) =>
-                                setTempInput((prev) => ({
-                                    ...prev,
-                                    inputDescription: e.target.value
-                                }))
-                            }
-                            disabled={createLoading}
-                            fullWidth
-                        />
-                    </Grid>
-                    <Grid item xs={12} sm={4}>
-                        <TextField
-                            label="Unlocking Script"
-                            value={tempInput.unlockingScript}
-                            onChange={(e) =>
-                                setTempInput((prev) => ({
-                                    ...prev,
-                                    unlockingScript: e.target.value
-                                }))
-                            }
-                            disabled={createLoading}
-                            fullWidth
-                        />
-                    </Grid>
-                    <Grid item xs={12} sm={4}>
-                        <TextField
-                            label="Unlocking Script Length"
-                            type="number"
-                            value={tempInput.unlockingScriptLength}
-                            onChange={(e) =>
-                                setTempInput((prev) => ({
-                                    ...prev,
-                                    unlockingScriptLength: e.target.value
-                                }))
-                            }
-                            disabled={createLoading}
-                            fullWidth
-                        />
-                    </Grid>
-                    <Grid item xs={12} sm={4}>
-                        <TextField
-                            label="Sequence Number"
-                            type="number"
-                            value={tempInput.sequenceNumber}
-                            onChange={(e) =>
-                                setTempInput((prev) => ({
-                                    ...prev,
-                                    sequenceNumber: e.target.value
-                                }))
-                            }
-                            disabled={createLoading}
-                            fullWidth
-                        />
-                    </Grid>
-                </Grid>
-                <Box textAlign="right" sx={{ mt: 1 }}>
-                    <Button variant="outlined" onClick={addInput} disabled={createLoading}>
-                        + Add Input
-                    </Button>
-                </Box>
-            </Box>
-
             <Divider sx={{ my: 2 }} />
 
             {/* Outputs */}
-            <Typography variant="h6" gutterBottom>
-                Outputs
-            </Typography>
+            <Box
+                display="flex"
+                justifyContent="space-between"
+                alignItems="center"
+                mb={1}
+            >
+                <Typography variant="h6">Outputs</Typography>
+                <Button
+                    variant="contained"
+                    startIcon={<AddCircleOutlineIcon />}
+                    onClick={handleAddOutputDialogOpen}
+                    disabled={createLoading}
+                >
+                    Add Output
+                </Button>
+            </Box>
 
             {createData.outputs.map((out, idx) => (
                 <Paper
@@ -1424,15 +1460,29 @@ function CreateActionFormContent(props: {
                     sx={{ p: 2, mb: 1, backgroundColor: '#f9f9f9', position: 'relative' }}
                     variant="outlined"
                 >
-                    <IconButton
-                        size="small"
-                        color="warning"
+                    <Box
+                        display="flex"
+                        justifyContent="flex-end"
+                        alignItems="center"
                         sx={{ position: 'absolute', top: 4, right: 4 }}
-                        onClick={() => removeOutput(idx)}
-                        disabled={createLoading}
                     >
-                        <DeleteIcon fontSize="small" />
-                    </IconButton>
+                        <IconButton
+                            size="small"
+                            color="primary"
+                            onClick={() => handleEditOutputDialogOpen(idx)}
+                            disabled={createLoading}
+                        >
+                            <EditIcon fontSize="small" />
+                        </IconButton>
+                        <IconButton
+                            size="small"
+                            color="warning"
+                            onClick={() => removeOutput(idx)}
+                            disabled={createLoading}
+                        >
+                            <DeleteIcon fontSize="small" />
+                        </IconButton>
+                    </Box>
                     <Grid container spacing={2}>
                         <Grid item xs={12} sm={8}>
                             <TextField
@@ -1491,27 +1541,105 @@ function CreateActionFormContent(props: {
                 </Paper>
             ))}
 
-            <Box
-                sx={{
-                    p: 2,
-                    border: '1px dashed #ccc',
-                    borderRadius: 1,
-                    mb: 2,
-                    mt: 2
-                }}
-            >
-                <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                    Add New Output
-                </Typography>
-                <Grid container spacing={2}>
-                    <Grid item xs={12}>
+            {/* If both arrays are empty, show a small warning */}
+            {bothArraysEmpty && (
+                <Alert severity="warning" sx={{ mt: 2 }}>
+                    At least one input or one output is required.
+                </Alert>
+            )}
+
+            {/**************************************************
+       * Dialog: Add/Edit Input
+       **************************************************/}
+            <Dialog open={inputDialogOpen} onClose={handleCancelInputDialog} fullWidth maxWidth="sm">
+                <DialogTitle>{editingInputIndex === null ? 'Add Input' : 'Edit Input'}</DialogTitle>
+                <DialogContent>
+                    <Stack spacing={2} sx={{ mt: 1 }}>
+                        <TextField
+                            label="Outpoint (txid.index)"
+                            value={inputFormState.outpoint}
+                            onChange={(e) =>
+                                setInputFormState((prev) => ({ ...prev, outpoint: e.target.value }))
+                            }
+                            disabled={createLoading}
+                            fullWidth
+                        />
+                        <TextField
+                            label="Input Description"
+                            value={inputFormState.inputDescription}
+                            onChange={(e) =>
+                                setInputFormState((prev) => ({
+                                    ...prev,
+                                    inputDescription: e.target.value
+                                }))
+                            }
+                            disabled={createLoading}
+                            fullWidth
+                        />
+                        <TextField
+                            label="Unlocking Script"
+                            value={inputFormState.unlockingScript}
+                            onChange={(e) =>
+                                setInputFormState((prev) => ({
+                                    ...prev,
+                                    unlockingScript: e.target.value
+                                }))
+                            }
+                            disabled={createLoading}
+                            fullWidth
+                        />
+                        <TextField
+                            label="Unlocking Script Length"
+                            type="number"
+                            value={inputFormState.unlockingScriptLength}
+                            onChange={(e) =>
+                                setInputFormState((prev) => ({
+                                    ...prev,
+                                    unlockingScriptLength: e.target.value
+                                }))
+                            }
+                            disabled={createLoading}
+                            fullWidth
+                        />
+                        <TextField
+                            label="Sequence Number"
+                            type="number"
+                            value={inputFormState.sequenceNumber}
+                            onChange={(e) =>
+                                setInputFormState((prev) => ({
+                                    ...prev,
+                                    sequenceNumber: e.target.value
+                                }))
+                            }
+                            disabled={createLoading}
+                            fullWidth
+                        />
+                    </Stack>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleCancelInputDialog} disabled={createLoading}>
+                        Cancel
+                    </Button>
+                    <Button onClick={handleSaveInput} variant="contained" disabled={createLoading}>
+                        {editingInputIndex === null ? 'Add' : 'Save'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/**************************************************
+       * Dialog: Add/Edit Output
+       **************************************************/}
+            <Dialog open={outputDialogOpen} onClose={handleCancelOutputDialog} fullWidth maxWidth="sm">
+                <DialogTitle>{editingOutputIndex === null ? 'Add Output' : 'Edit Output'}</DialogTitle>
+                <DialogContent>
+                    <Stack spacing={2} sx={{ mt: 1 }}>
                         <TextField
                             label="Locking Script"
                             multiline
                             minRows={2}
-                            value={tempOutput.lockingScript}
+                            value={outputFormState.lockingScript}
                             onChange={(e) =>
-                                setTempOutput((prev) => ({
+                                setOutputFormState((prev) => ({
                                     ...prev,
                                     lockingScript: e.target.value
                                 }))
@@ -1519,26 +1647,24 @@ function CreateActionFormContent(props: {
                             disabled={createLoading}
                             fullWidth
                         />
-                    </Grid>
-                    <Grid item xs={12} sm={4}>
                         <TextField
                             label="Satoshis"
                             type="number"
-                            value={tempOutput.satoshis}
-                            onChange={(e) => {
-                                const val = parseInt(e.target.value, 10) || 0;
-                                setTempOutput((prev) => ({ ...prev, satoshis: val }));
-                            }}
+                            value={outputFormState.satoshis}
+                            onChange={(e) =>
+                                setOutputFormState((prev) => ({
+                                    ...prev,
+                                    satoshis: e.target.value
+                                }))
+                            }
                             disabled={createLoading}
                             fullWidth
                         />
-                    </Grid>
-                    <Grid item xs={12} sm={8}>
                         <TextField
                             label="Output Description"
-                            value={tempOutput.outputDescription}
+                            value={outputFormState.outputDescription}
                             onChange={(e) =>
-                                setTempOutput((prev) => ({
+                                setOutputFormState((prev) => ({
                                     ...prev,
                                     outputDescription: e.target.value
                                 }))
@@ -1546,13 +1672,11 @@ function CreateActionFormContent(props: {
                             disabled={createLoading}
                             fullWidth
                         />
-                    </Grid>
-                    <Grid item xs={12} sm={6}>
                         <TextField
                             label="Basket (optional)"
-                            value={tempOutput.basket}
+                            value={outputFormState.basket}
                             onChange={(e) =>
-                                setTempOutput((prev) => ({
+                                setOutputFormState((prev) => ({
                                     ...prev,
                                     basket: e.target.value
                                 }))
@@ -1560,13 +1684,11 @@ function CreateActionFormContent(props: {
                             disabled={createLoading}
                             fullWidth
                         />
-                    </Grid>
-                    <Grid item xs={12} sm={6}>
                         <TextField
                             label="Tags (comma-separated)"
-                            value={tempOutput.tags}
+                            value={outputFormState.tags}
                             onChange={(e) =>
-                                setTempOutput((prev) => ({
+                                setOutputFormState((prev) => ({
                                     ...prev,
                                     tags: e.target.value
                                 }))
@@ -1574,15 +1696,13 @@ function CreateActionFormContent(props: {
                             disabled={createLoading}
                             fullWidth
                         />
-                    </Grid>
-                    <Grid item xs={12}>
                         <TextField
                             label="Custom Instructions"
                             multiline
                             minRows={2}
-                            value={tempOutput.customInstructions}
+                            value={outputFormState.customInstructions}
                             onChange={(e) =>
-                                setTempOutput((prev) => ({
+                                setOutputFormState((prev) => ({
                                     ...prev,
                                     customInstructions: e.target.value
                                 }))
@@ -1590,21 +1710,17 @@ function CreateActionFormContent(props: {
                             disabled={createLoading}
                             fullWidth
                         />
-                    </Grid>
-                </Grid>
-                <Box textAlign="right" sx={{ mt: 1 }}>
-                    <Button variant="outlined" onClick={addOutput} disabled={createLoading}>
-                        + Add Output
+                    </Stack>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleCancelOutputDialog} disabled={createLoading}>
+                        Cancel
                     </Button>
-                </Box>
-            </Box>
-
-            {/* If both arrays are empty, show a small warning */}
-            {bothArraysEmpty && (
-                <Alert severity="warning" sx={{ mt: 2 }}>
-                    At least one input or one output is required.
-                </Alert>
-            )}
+                    <Button onClick={handleSaveOutput} variant="contained" disabled={createLoading}>
+                        {editingOutputIndex === null ? 'Add' : 'Save'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
         </Box>
     );
 }

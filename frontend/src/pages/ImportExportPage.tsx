@@ -115,8 +115,8 @@ function ImportFunds({ localNetwork }: { localNetwork: 'main' | 'test' }) {
             return;
         }
         setLoading(true);
-        const foreignPublicKey = new PrivateKey(foreignPrivKey, 'hex').toPublicKey().toString();
-
+        const foreignIdentityKey = new PrivateKey(foreignPrivKey, 'hex').toPublicKey().toString();
+        const { publicKey: localIdentityKey } = await wallet.getPublicKey({ identityKey: true });
         try {
             // 1) build foreign wallet:
             const foreign = await makeWallet(foreignNet, foreignPrivKey.trim(), foreignStorage.trim());
@@ -130,7 +130,7 @@ function ImportFunds({ localNetwork }: { localNetwork: 'main' | 'test' }) {
             const pubResp = await wallet.getPublicKey({
                 protocolID: [1, 'wallet payment'],
                 keyID: `${derivPrefix} ${derivSuffix}`,
-                counterparty: foreignPublicKey
+                counterparty: foreignIdentityKey
             });
             const localPubKey = pubResp.publicKey;
 
@@ -174,7 +174,7 @@ function ImportFunds({ localNetwork }: { localNetwork: 'main' | 'test' }) {
                         paymentRemittance: {
                             derivationPrefix: derivPrefix,
                             derivationSuffix: derivSuffix,
-                            senderIdentityKey: pubResp.publicKey
+                            senderIdentityKey: localIdentityKey
                         }
                     }
                 ],
@@ -299,7 +299,7 @@ function ExportFunds({ localNetwork }: { localNetwork: 'main' | 'test' }) {
             return;
         }
         setLoading(true);
-
+        const { publicKey: localIdentityKey } = await wallet.getPublicKey({ identityKey: true });
         try {
             // 1) build foreign wallet:
             const foreign = await makeWallet(foreignNet, foreignPrivKey.trim(), foreignStorage.trim());
@@ -313,30 +313,25 @@ function ExportFunds({ localNetwork }: { localNetwork: 'main' | 'test' }) {
             const pubResp = await foreign.getPublicKey({
                 protocolID: [1, 'wallet payment'],
                 keyID: derivSuffix,
-                counterparty: 'anyone'
+                counterparty: localIdentityKey
             });
             const foreignPubKey = pubResp.publicKey;
             const lockingScript = buildLockingScriptFromPubKey(foreignPubKey);
 
             // 3) We do a local createAction paying `amount` to that script
             const createResp = await wallet.createAction({
-                description: 'ExportFunds Payment to foreign wallet',
+                description: 'Export funds to foreign wallet',
                 outputs: [
                     {
                         lockingScript,
                         satoshis: amount,
-                        outputDescription: 'ExportFlow'
+                        outputDescription: 'Funds for foreign wallet'
                     }
-                ],
-                options: {
-                    signAndProcess: true
-                }
+                ]
             });
             // parse out the final transaction from createResp
             const atomicBEEF: number[] =
-                createResp.tx ||
-                createResp.signableTransaction?.tx ||
-                []; // just an example approach
+                createResp.tx
             if (!atomicBEEF.length) {
                 throw new Error('No final transaction data from local createAction.');
             }
@@ -353,8 +348,7 @@ function ExportFunds({ localNetwork }: { localNetwork: 'main' | 'test' }) {
                         paymentRemittance: {
                             derivationPrefix: derivPrefix,
                             derivationSuffix: derivSuffix,
-                            senderIdentityKey:
-                                '02ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff'
+                            senderIdentityKey: localIdentityKey
                         }
                     }
                 ],
