@@ -126,6 +126,12 @@ function MainLayout() {
             path: '/certificates'
         },
         {
+            label: 'Import & Export to Key',
+            icon: <SettingsIcon />,
+            subtitle: 'Move sats in and out of this wallet',
+            path: '/import-export'
+        },
+        {
             label: 'Utilities',
             icon: <SettingsIcon />,
             subtitle: 'Height, network, version, etc.',
