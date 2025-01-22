@@ -1187,7 +1187,7 @@ function CreateActionFormContent(props: {
                 <Grid container spacing={2}>
                     <Grid item xs={6}>
                         <TextField
-                            label="LockTime"
+                            label="Lock Time"
                             type="number"
                             value={createData.lockTime || ''}
                             onChange={(e) => {
@@ -1253,7 +1253,7 @@ function CreateActionFormContent(props: {
                                     }
                                 />
                             }
-                            label="signAndProcess"
+                            label="Sign And Process"
                             disabled={createLoading}
                         />
                         <FormControlLabel
@@ -1271,7 +1271,7 @@ function CreateActionFormContent(props: {
                                     }
                                 />
                             }
-                            label="acceptDelayedBroadcast"
+                            label="Accept Delayed Broadcast"
                             disabled={createLoading}
                         />
                         <FormControlLabel
@@ -1289,7 +1289,7 @@ function CreateActionFormContent(props: {
                                     }
                                 />
                             }
-                            label="returnTXIDOnly"
+                            label="Return TXID Only"
                             disabled={createLoading}
                         />
                         <FormControlLabel
@@ -1307,7 +1307,7 @@ function CreateActionFormContent(props: {
                                     }
                                 />
                             }
-                            label="noSend"
+                            label="No Send"
                             disabled={createLoading}
                         />
                         <FormControlLabel
@@ -1325,7 +1325,7 @@ function CreateActionFormContent(props: {
                                     }
                                 />
                             }
-                            label="randomizeOutputs"
+                            label="Randomize Outputs"
                             disabled={createLoading}
                         />
                     </Stack>

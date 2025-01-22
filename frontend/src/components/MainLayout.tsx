@@ -150,8 +150,8 @@ function MainLayout() {
         >
             {/* Config selection at the top */}
             <Box sx={{ p: 4, pt: 6 }}>
-                <Typography align='center' variant='h1'>WAL</Typography>
-                <Typography align='center' variant='subtitle1' color='textSecondary' sx={{ mb: 4 }}>Wallet Administration Layer</Typography>
+                <Typography align='center' variant='h1'>WUI</Typography>
+                <Typography align='center' variant='subtitle1' color='textSecondary' sx={{ mb: 4 }}>Wallet User Interface</Typography>
                 <FormControl fullWidth variant="outlined" size="small">
                     <InputLabel>Active Config</InputLabel>
                     <Select
