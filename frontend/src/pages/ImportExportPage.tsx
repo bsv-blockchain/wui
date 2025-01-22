@@ -128,7 +128,7 @@ function ImportFunds({ localNetwork }: { localNetwork: 'main' | 'test' }) {
 
             // b) call local getPublicKey with, say, `[1, "wallet payment"]`, or your actual protocol
             const pubResp = await wallet.getPublicKey({
-                protocolID: [1, 'wallet payment'],
+                protocolID: [2, '3241645161d8'],
                 keyID: `${derivPrefix} ${derivSuffix}`,
                 counterparty: foreignIdentityKey
             });
@@ -311,7 +311,7 @@ function ExportFunds({ localNetwork }: { localNetwork: 'main' | 'test' }) {
 
             //    call foreign getPublicKey to get a pubkey
             const pubResp = await foreign.getPublicKey({
-                protocolID: [1, 'wallet payment'],
+                protocolID: [2, '3241645161d8'],
                 keyID: derivSuffix,
                 counterparty: localIdentityKey
             });
