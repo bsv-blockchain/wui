@@ -4,15 +4,11 @@ import {
     Typography,
     Paper,
     Button,
-    IconButton,
     TextField,
     Divider,
     Checkbox,
     FormControlLabel,
     Stack,
-    List,
-    ListItem,
-    ListItemText,
     Pagination,
     Grid,
     MenuItem,
@@ -23,14 +19,51 @@ import {
     DialogTitle,
     DialogContent,
     DialogActions,
-    Alert
+    Alert, Accordion,
+    AccordionSummary,
+    AccordionDetails,
+    Chip,
+    Tooltip,
+    IconButton
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import InputIcon from '@mui/icons-material/Input';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+
 import { useWallet } from '../contexts/WalletContext';
+
+/** Helper: copy string to clipboard */
+function copyToClipboard(text: string) {
+    navigator.clipboard.writeText(text).catch((err) => console.error(err));
+}
+
+/** Helper: shortens a TXID for display (e.g., first 8 + '...' + last 8) */
+function shortTxid(txid: string) {
+    if (txid.length <= 16) return txid;
+    return txid.slice(0, 8) + '...' + txid.slice(-8);
+}
+
+/** (Optional) You can color-code your status strings if you wish. */
+function getStatusColor(status: string): 'default' | 'primary' | 'success' | 'error' | 'warning' {
+    const normalized = status.toLowerCase();
+    switch (normalized) {
+        case 'confirmed':
+        case 'success':
+            return 'success';
+        case 'pending':
+        case 'processing':
+            return 'warning';
+        case 'failed':
+        case 'rejected':
+            return 'error';
+        default:
+            return 'default';
+    }
+}
 
 interface ActionItem {
     txid: string;
@@ -198,6 +231,9 @@ function ActionsPage() {
                 includeLabels,
                 includeInputs,
                 includeOutputs,
+                includeInputUnlockingScripts: true,
+                includeInputSourceLockingScripts: true,
+                includeOutputLockingScripts: true,
                 limit,
                 offset: (page - 1) * limit
             });
@@ -530,29 +566,297 @@ function ActionsPage() {
                     </Alert>
                 )}
 
-                <List dense>
-                    {actions.map((a, i) => (
-                        <ListItem key={i} sx={{ borderBottom: '1px solid #eee' }}>
-                            <ListItemText
-                                primary={`TXID: ${a.txid} - Desc: ${a.description} - Status: ${a.status}`}
-                                secondary={
-                                    <>
-                                        {a.labels?.length
-                                            ? `Labels: [${a.labels.join(', ')}] `
-                                            : ''}
-                                        {includeInputs && a.inputs?.length
-                                            ? ` | ${a.inputs.length} inputs `
-                                            : ''}
-                                        {includeOutputs && a.outputs?.length
-                                            ? ` | ${a.outputs.length} outputs `
-                                            : ''}
-                                        {a.satoshis ? ` | Satoshis: ${a.satoshis}` : ''}
-                                    </>
-                                }
-                            />
-                        </ListItem>
-                    ))}
-                </List>
+                {/* Render each action in an Accordion for detail expansion */}
+                {actions.map((action, idx) => {
+                    return (
+                        <Accordion key={idx} sx={{ mt: 2 }}>
+                            <AccordionSummary
+                                expandIcon={<ExpandMoreIcon />}
+                                aria-controls={`panel-${idx}-content`}
+                                id={`panel-${idx}-header`}
+                            >
+                                {/* Top (summary) row: TXID (short), description, status, satoshis */}
+                                <Box sx={{ width: '100%' }}>
+                                    <Stack
+                                        direction={{ xs: 'column', sm: 'row' }}
+                                        spacing={1}
+                                        alignItems={{ xs: 'flex-start', sm: 'center' }}
+                                        justifyContent="space-between"
+                                    >
+                                        {/* Left side: TxID + Description */}
+                                        <Stack direction="row" spacing={1} alignItems="center">
+                                            <Typography variant="body1" fontWeight="bold">
+                                                {shortTxid(action.txid)}
+                                            </Typography>
+                                            {/* Copy button for TXID */}
+                                            <Tooltip title="Copy full TXID">
+                                                <IconButton
+                                                    size="small"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        copyToClipboard(action.txid);
+                                                    }}
+                                                >
+                                                    <ContentCopyIcon fontSize="inherit" />
+                                                </IconButton>
+                                            </Tooltip>
+                                            {action.description && (
+                                                <Typography variant="body2" sx={{ ml: 1 }}>
+                                                    {`- ${action.description}`}
+                                                </Typography>
+                                            )}
+                                        </Stack>
+
+                                        {/* Right side: Status + Satoshis + Outgoing/Incoming indicator */}
+                                        <Stack direction="row" spacing={2} alignItems="center">
+                                            {/* Show status as a Chip, possibly color-coded */}
+                                            <Chip
+                                                label={action.status}
+                                                color={getStatusColor(action.status)}
+                                                size="small"
+                                            />
+                                            {action.satoshis !== undefined && (
+                                                <Typography variant="body2" sx={{ whiteSpace: 'nowrap' }}>
+                                                    {action.satoshis} sats
+                                                </Typography>
+                                            )}
+                                            {/* Outgoing or Incoming? */}
+                                            <Typography
+                                                variant="body2"
+                                                color={action.isOutgoing ? 'error' : 'success'}
+                                                sx={{ fontWeight: 'bold' }}
+                                            >
+                                                {action.isOutgoing ? 'Outgoing' : 'Incoming'}
+                                            </Typography>
+                                        </Stack>
+                                    </Stack>
+                                </Box>
+                            </AccordionSummary>
+
+                            <AccordionDetails>
+                                {/* Labels, version, lockTime, etc. */}
+                                <Stack spacing={1} sx={{ mb: 1 }}>
+                                    {action.labels && action.labels.length > 0 && (
+                                        <Box>
+                                            <Typography variant="subtitle2">Labels:</Typography>
+                                            <Stack direction="row" spacing={1} flexWrap="wrap">
+                                                {action.labels.map((label, i) => (
+                                                    <Chip key={i} label={label} size="small" variant="outlined" />
+                                                ))}
+                                            </Stack>
+                                        </Box>
+                                    )}
+
+                                    {/* Show optional version/lockTime if they exist */}
+                                    {(action.version !== undefined || action.lockTime !== undefined) && (
+                                        <Box>
+                                            <Typography variant="subtitle2">Additional Info:</Typography>
+                                            <Stack direction="row" spacing={2}>
+                                                {action.version !== undefined && (
+                                                    <Typography variant="body2">Version: {action.version}</Typography>
+                                                )}
+                                                {action.lockTime !== undefined && (
+                                                    <Typography variant="body2">Lock Time: {action.lockTime}</Typography>
+                                                )}
+                                            </Stack>
+                                        </Box>
+                                    )}
+                                </Stack>
+
+                                {/* Inputs */}
+                                {includeInputs ? (
+                                    action.inputs && action.inputs.length > 0 ? (
+                                        <Box sx={{ mb: 2 }}>
+                                            <Typography variant="subtitle1" sx={{ mb: 1 }}>
+                                                Inputs ({action.inputs.length})
+                                            </Typography>
+                                            <Grid container spacing={2}>
+                                                {action.inputs.map((inp, i) => (
+                                                    <Grid item xs={12} key={i}>
+                                                        <Paper
+                                                            variant="outlined"
+                                                            sx={{ p: 2, backgroundColor: '#fafafa' }}
+                                                        >
+                                                            <Stack spacing={1}>
+                                                                <Typography variant="body2">
+                                                                    <strong>Outpoint:</strong> {inp.sourceOutpoint}
+                                                                </Typography>
+                                                                <Typography variant="body2">
+                                                                    <strong>Satoshis:</strong> {inp.sourceSatoshis}
+                                                                </Typography>
+                                                                {inp.inputDescription && (
+                                                                    <Typography variant="body2">
+                                                                        <strong>Description:</strong> {inp.inputDescription}
+                                                                    </Typography>
+                                                                )}
+                                                                {typeof inp.sequenceNumber === 'number' && (
+                                                                    <Typography variant="body2">
+                                                                        <strong>Sequence Number:</strong> {inp.sequenceNumber}
+                                                                    </Typography>
+                                                                )}
+
+                                                                {/* Locking / Unlocking scripts can be large. Put them in scrollable boxes. */}
+                                                                {inp.sourceLockingScript && (
+                                                                    <Box>
+                                                                        <Typography variant="body2" fontWeight="bold">
+                                                                            Source Locking Script:
+                                                                        </Typography>
+                                                                        <Box
+                                                                            sx={{
+                                                                                maxHeight: 150,
+                                                                                overflow: 'auto',
+                                                                                backgroundColor: '#f0f0f0',
+                                                                                p: 1,
+                                                                                mt: 1,
+                                                                                fontFamily: 'monospace',
+                                                                                fontSize: 14
+                                                                            }}
+                                                                        >
+                                                                            {inp.sourceLockingScript}
+                                                                        </Box>
+                                                                    </Box>
+                                                                )}
+                                                                {inp.unlockingScript && (
+                                                                    <Box>
+                                                                        <Typography variant="body2" fontWeight="bold">
+                                                                            Unlocking Script:
+                                                                        </Typography>
+                                                                        <Box
+                                                                            sx={{
+                                                                                maxHeight: 150,
+                                                                                overflow: 'auto',
+                                                                                backgroundColor: '#f0f0f0',
+                                                                                p: 1,
+                                                                                mt: 1,
+                                                                                fontFamily: 'monospace',
+                                                                                fontSize: 14
+                                                                            }}
+                                                                        >
+                                                                            {inp.unlockingScript}
+                                                                        </Box>
+                                                                    </Box>
+                                                                )}
+                                                            </Stack>
+                                                        </Paper>
+                                                    </Grid>
+                                                ))}
+                                            </Grid>
+                                        </Box>
+                                    ) : (
+                                        <Typography variant="body2" sx={{ mb: 2 }}>
+                                            No inputs for this action.
+                                        </Typography>
+                                    )
+                                ) : (
+                                    <Typography variant="body2" sx={{ mb: 2 }}>
+                                        Inputs not requested. Enable “Include Inputs” to see them.
+                                    </Typography>
+                                )}
+
+                                {/* Outputs */}
+                                {includeOutputs ? (
+                                    action.outputs && action.outputs.length > 0 ? (
+                                        <Box sx={{ mb: 1 }}>
+                                            <Typography variant="subtitle1" sx={{ mb: 1 }}>
+                                                Outputs ({action.outputs.length})
+                                            </Typography>
+                                            <Grid container spacing={2}>
+                                                {action.outputs.map((out, i) => (
+                                                    <Grid item xs={12} key={i}>
+                                                        <Paper
+                                                            variant="outlined"
+                                                            sx={{ p: 2, backgroundColor: '#fafafa' }}
+                                                        >
+                                                            <Stack spacing={1}>
+                                                                <Typography variant="body2">
+                                                                    <strong>Output Index:</strong> {out.outputIndex}
+                                                                </Typography>
+                                                                <Typography variant="body2">
+                                                                    <strong>Satoshis:</strong> {out.satoshis}
+                                                                </Typography>
+                                                                {out.outputDescription && (
+                                                                    <Typography variant="body2">
+                                                                        <strong>Description:</strong> {out.outputDescription}
+                                                                    </Typography>
+                                                                )}
+
+                                                                <Typography variant="body2">
+                                                                    <strong>Spendable:</strong>{' '}
+                                                                    {out.spendable ? 'Yes' : 'No'}
+                                                                </Typography>
+
+                                                                {/* If a basket is present */}
+                                                                {out.basket && (
+                                                                    <Typography variant="body2">
+                                                                        <strong>Basket:</strong> {out.basket}
+                                                                    </Typography>
+                                                                )}
+
+                                                                {/* Tags if present */}
+                                                                {out.tags && out.tags.length > 0 && (
+                                                                    <Box>
+                                                                        <Typography variant="body2" fontWeight="bold">
+                                                                            Tags:
+                                                                        </Typography>
+                                                                        <Stack direction="row" spacing={1} flexWrap="wrap">
+                                                                            {out.tags.map((t, tagIdx) => (
+                                                                                <Chip key={tagIdx} label={t} size="small" />
+                                                                            ))}
+                                                                        </Stack>
+                                                                    </Box>
+                                                                )}
+
+                                                                {/* Custom instructions if present */}
+                                                                {out.customInstructions && (
+                                                                    <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+                                                                        <strong>Custom Instructions:</strong>{' '}
+                                                                        {out.customInstructions}
+                                                                    </Typography>
+                                                                )}
+
+                                                                {/* Locking script can be large. */}
+                                                                {out.lockingScript && (
+                                                                    <Box>
+                                                                        <Typography variant="body2" fontWeight="bold">
+                                                                            Locking Script:
+                                                                        </Typography>
+                                                                        <Box
+                                                                            sx={{
+                                                                                maxHeight: 150,
+                                                                                overflow: 'auto',
+                                                                                backgroundColor: '#f0f0f0',
+                                                                                p: 1,
+                                                                                mt: 1,
+                                                                                fontFamily: 'monospace',
+                                                                                fontSize: 14
+                                                                            }}
+                                                                        >
+                                                                            {out.lockingScript}
+                                                                        </Box>
+                                                                    </Box>
+                                                                )}
+                                                            </Stack>
+                                                        </Paper>
+                                                    </Grid>
+                                                ))}
+                                            </Grid>
+                                        </Box>
+                                    ) : (
+                                        <Typography variant="body2" sx={{ mb: 1 }}>
+                                            No outputs for this action.
+                                        </Typography>
+                                    )
+                                ) : (
+                                    <Typography variant="body2" sx={{ mb: 2 }}>
+                                        Outputs not requested. Enable “Include Outputs” to see them.
+                                    </Typography>
+                                )}
+                            </AccordionDetails>
+                        </Accordion>
+                    );
+                })}
+
+                {/* Pagination */}
                 <Pagination
                     sx={{ mt: 2 }}
                     page={actionsPage}

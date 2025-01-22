@@ -8,6 +8,7 @@ export default async function makeWallet(chain: 'test' | 'main', privateKey: str
     const services = new Services(chain);
     const wallet = new Wallet(signer, keyDeriver, services);
     const client = new StorageClient(wallet, storageURL);
+    await client.makeAvailable();
     await storageManager.addWalletStorageProvider(client);
     return wallet;
 }

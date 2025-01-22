@@ -330,8 +330,7 @@ function ExportFunds({ localNetwork }: { localNetwork: 'main' | 'test' }) {
                 ]
             });
             // parse out the final transaction from createResp
-            const atomicBEEF: number[] =
-                createResp.tx
+            const atomicBEEF = createResp.tx as number[]
             if (!atomicBEEF.length) {
                 throw new Error('No final transaction data from local createAction.');
             }
