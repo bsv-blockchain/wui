@@ -12,6 +12,7 @@ import ActionsPage from './pages/ActionsPage';
 import OutputsPage from './pages/OutputsPage';
 import KeysLinkagePage from './pages/KeysLinkagePage';
 import CryptoPage from './pages/CryptoPage';
+import IdentityResolutionPage from './pages/IdentityResolutionPage';
 import CertificatesPage from './pages/CertificatesPage';
 import ImportExportPage from './pages/ImportExportPage';
 import UtilitiesPage from './pages/UtilitiesPage';
@@ -60,6 +61,7 @@ function AppContent() {
                 <Route path="/outputs" element={<OutputsPage />} />
                 <Route path="/keys" element={<KeysLinkagePage />} />
                 <Route path="/crypto" element={<CryptoPage />} />
+                <Route path="/identity-resolution" element={<IdentityResolutionPage />} />
                 <Route path="/certificates" element={<CertificatesPage />} />
                 <Route path="/import-export" element={<ImportExportPage />} />
                 <Route path="/utilities" element={<UtilitiesPage />} />

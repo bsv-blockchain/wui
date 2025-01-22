@@ -120,6 +120,12 @@ function MainLayout() {
             path: '/crypto'
         },
         {
+            label: 'Identity Resolution',
+            icon: <DescriptionIcon />,
+            subtitle: 'Search by public key or attributes',
+            path: '/identity-resolution'
+        },
+        {
             label: 'Certificates',
             icon: <DescriptionIcon />,
             subtitle: 'Issuance & proving identity docs',
