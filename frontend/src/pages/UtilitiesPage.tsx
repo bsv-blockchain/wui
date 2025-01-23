@@ -54,7 +54,7 @@ function UtilitiesPage() {
     const handleComputeValueForBasket = async () => {
         if (!wallet || !basketName) return;
         try {
-            const resp = await wallet.listOutputs({ basket: basketName });
+            const resp = await wallet.listOutputs({ basket: basketName, limit: 10000 });
             setBasketResult(String(resp.outputs.reduce((a, e) => a + e.satoshis, 0)));
         } catch (err) {
             console.error(err);

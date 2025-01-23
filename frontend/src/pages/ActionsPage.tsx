@@ -287,13 +287,16 @@ function ActionsPage() {
         try {
             const resp = await wallet.createAction({
                 description: createData.description,
-                inputBEEF: parseHexString(createData.inputBEEFHex),
+                inputBEEF: createData.inputBEEFHex ? parseHexString(createData.inputBEEFHex) : undefined,
                 inputs: createData.inputs,
                 outputs: createData.outputs,
                 lockTime: createData.lockTime,
                 version: createData.version,
                 labels: createData.labels,
-                options: { ...createData.options }
+                options: {
+                    trustSelf: 'known',
+                    ...createData.options
+                }
             });
             setCreateResult(resp);
 
