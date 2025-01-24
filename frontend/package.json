@@ -23,7 +23,7 @@
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.8.0",
     "typescript": "^4.9.5",
-    "wallet-storage-client": "^1.0.15",
+    "wallet-storage-client": "^1.0.16",
     "web-vitals": "^3.3.2"
   },
   "devDependencies": {
