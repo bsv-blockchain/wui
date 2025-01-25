@@ -1,5 +1,6 @@
 import { Wallet, WalletSigner, WalletStorageManager, StorageClient, Services } from 'wallet-storage-client';
 import { WalletClient, Wallet as WalletInterface, KeyDeriver, PrivateKey } from '@bsv/sdk'
+import { PrivilegedKeyManager } from 'wallet-storage-client/out/src/sdk';
 
 export default async function makeWallet(chain: 'test' | 'main' | 'local', privateKey: string, storageURL: string): Promise<WalletInterface> {
     if (chain === 'local') {
@@ -9,7 +10,14 @@ export default async function makeWallet(chain: 'test' | 'main' | 'local', priva
     const storageManager = new WalletStorageManager(keyDeriver.identityKey);
     const signer = new WalletSigner(chain, keyDeriver, storageManager);
     const services = new Services(chain);
-    const wallet = new Wallet(signer, keyDeriver, services);
+    const wallet = new Wallet(signer, services, undefined, new PrivilegedKeyManager(async (reason) => {
+        const key = window.prompt(`Privileged key requested. Privileged keys are not stored in local storage by WUI. You will need to provide it every time. Reason:\n\n${reason}\n\nPaste your privileged key in hex. If no value provided, a random key will be generated instead:`);
+        if (!key) {
+            return PrivateKey.fromRandom()
+        } else {
+            return new PrivateKey(key, 'hex')
+        }
+    }));
     const client = new StorageClient(wallet, storageURL);
     await client.makeAvailable();
     await storageManager.addWalletStorageProvider(client);
