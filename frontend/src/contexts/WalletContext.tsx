@@ -1,5 +1,5 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
-import { Wallet } from '@bsv/sdk';
+import { WalletInterface } from '@bsv/sdk';
 import makeWallet from '../utils/makeWallet';
 import {
     getActiveConfigId,
@@ -14,9 +14,9 @@ import {
  *  - a function to set the active config by ID (which triggers wallet creation)
  */
 interface WalletContextValue {
-    wallet: Wallet | null;
+    wallet: WalletInterface | null;
     loadingInitialWallet: boolean;
-    setWallet: React.Dispatch<React.SetStateAction<Wallet | null>>;
+    setWallet: React.Dispatch<React.SetStateAction<WalletInterface | null>>;
 
     // A helper to pick a new config ID from the UI. We'll handle all the logic.
     pickActiveConfig: (configId: string | null) => Promise<void>;
@@ -30,7 +30,7 @@ const WalletContext = createContext<WalletContextValue>({
 });
 
 export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const [wallet, setWallet] = useState<Wallet | null>(null);
+    const [wallet, setWallet] = useState<WalletInterface | null>(null);
     const [loadingInitialWallet, setLoadingInitialWallet] = useState(true);
 
     // On mount, check if we have an active config. If so, build a wallet from it.

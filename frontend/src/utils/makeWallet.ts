@@ -1,6 +1,6 @@
-import { Wallet, WalletSigner, WalletStorageManager, StorageClient, Services } from 'wallet-storage-client';
-import { WalletClient, Wallet as WalletInterface, KeyDeriver, PrivateKey } from '@bsv/sdk'
-import { PrivilegedKeyManager } from 'wallet-storage-client/out/src/sdk';
+import { Wallet, WalletSigner, WalletStorageManager, StorageClient, Services } from '@bsv/wallet-toolbox-client';
+import { WalletClient, WalletInterface, KeyDeriver, PrivateKey } from '@bsv/sdk'
+import { PrivilegedKeyManager } from '@bsv/wallet-toolbox-client/out/src/sdk';
 
 export default async function makeWallet(chain: 'test' | 'main' | 'local', privateKey: string, storageURL: string): Promise<WalletInterface> {
     if (chain === 'local') {
