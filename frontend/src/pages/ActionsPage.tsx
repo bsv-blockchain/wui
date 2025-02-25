@@ -474,7 +474,7 @@ function ActionsPage() {
                     <Grid item xs={12} sm={3}>
                         <TextField
                             label="Labels (comma-separated)"
-                            value={labelsFilter}
+                            value={labelsFilter || ''}
                             onChange={(e) => setLabelsFilter(e.target.value)}
                             fullWidth
                         />

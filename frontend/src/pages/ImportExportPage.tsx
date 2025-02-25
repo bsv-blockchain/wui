@@ -312,7 +312,7 @@ function ExportFunds({ localNetwork }: { localNetwork: 'main' | 'test' }) {
             //    call foreign getPublicKey to get a pubkey
             const pubResp = await foreign.getPublicKey({
                 protocolID: [2, '3241645161d8'],
-                keyID: derivSuffix,
+                keyID: `${derivPrefix} ${derivSuffix}`,
                 counterparty: localIdentityKey
             });
             const foreignPubKey = pubResp.publicKey;
@@ -325,9 +325,10 @@ function ExportFunds({ localNetwork }: { localNetwork: 'main' | 'test' }) {
                     {
                         lockingScript,
                         satoshis: amount,
-                        outputDescription: 'Funds for foreign wallet'
+                        outputDescription: 'Funds for foreign wallet',
+                        customInstructions: JSON.stringify({ prefix: derivPrefix, suffix: derivSuffix, counterparty: localIdentityKey })
                     }
-                ]
+                ],
             });
             // parse out the final transaction from createResp
             const atomicBEEF = createResp.tx as number[]
