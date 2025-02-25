@@ -151,7 +151,7 @@ function ActionsPage() {
     /**************************************************
      * List Filters & State
      **************************************************/
-    const [labelsFilter, setLabelsFilter] = useState<string>('default');
+    const [labelsFilter, setLabelsFilter] = useState<string>('');
     const [labelQueryMode, setLabelQueryMode] = useState<'any' | 'all'>('any');
     const [includeLabels, setIncludeLabels] = useState(false);
     const [includeInputs, setIncludeInputs] = useState(false);

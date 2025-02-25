@@ -19,7 +19,7 @@ import {
     DialogContent,
     DialogActions
 } from '@mui/material';
-import { P2PKH, PrivateKey, PublicKey } from '@bsv/sdk';
+import { CreateActionArgs, InternalizeActionArgs, P2PKH, PrivateKey, PublicKey } from '@bsv/sdk';
 
 import { useWallet } from '../contexts/WalletContext';
 import makeWallet from '../utils/makeWallet';
@@ -319,17 +319,21 @@ function ExportFunds({ localNetwork }: { localNetwork: 'main' | 'test' }) {
             const lockingScript = buildLockingScriptFromPubKey(foreignPubKey);
 
             // 3) We do a local createAction paying `amount` to that script
-            const createResp = await wallet.createAction({
+            const args: CreateActionArgs = {
                 description: 'Export funds to foreign wallet',
                 outputs: [
                     {
                         lockingScript,
                         satoshis: amount,
                         outputDescription: 'Funds for foreign wallet',
-                        customInstructions: JSON.stringify({ prefix: derivPrefix, suffix: derivSuffix, counterparty: localIdentityKey })
+                        customInstructions: JSON.stringify({ prefix: derivPrefix, suffix: derivSuffix, counterparty: localIdentityKey, type: 'BRC29' })
                     }
                 ],
-            });
+                options: {
+                    randomizeOutputs: false
+                }
+            }
+            const createResp = await wallet.createAction(args);
             // parse out the final transaction from createResp
             const atomicBEEF = createResp.tx as number[]
             if (!atomicBEEF.length) {
@@ -339,7 +343,7 @@ function ExportFunds({ localNetwork }: { localNetwork: 'main' | 'test' }) {
             // 4) We then "internalize" that transaction on the foreign wallet.
             //    In a typical flow, foreign might do so automatically, or we do it here
             //    since user has foreign's private key as well.
-            const intResp = await foreign.internalizeAction({
+            const iargs: InternalizeActionArgs = {
                 tx: atomicBEEF,
                 outputs: [
                     {
@@ -348,12 +352,13 @@ function ExportFunds({ localNetwork }: { localNetwork: 'main' | 'test' }) {
                         paymentRemittance: {
                             derivationPrefix: derivPrefix,
                             derivationSuffix: derivSuffix,
-                            senderIdentityKey: localIdentityKey
+                            senderIdentityKey: localIdentityKey,
                         }
                     }
                 ],
                 description: 'Internalizing export funds tx into foreign wallet'
-            });
+            }
+            const intResp = await foreign.internalizeAction(iargs);
 
             setResultInfo({ createResp, intResp });
             setSuccessDialogOpen(true);
