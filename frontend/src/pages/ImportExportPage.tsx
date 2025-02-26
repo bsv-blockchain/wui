@@ -303,6 +303,7 @@ function ExportFunds({ localNetwork }: { localNetwork: 'main' | 'test' }) {
         try {
             // 1) build foreign wallet:
             const foreign = await makeWallet(foreignNet, foreignPrivKey.trim(), foreignStorage.trim());
+            const { publicKey: foreignIdentityKey } = await foreign.getPublicKey({ identityKey: true });
 
             // 2) Derive a "wallet payment" key from the foreign wallet (so we can pay them).
             //    Let's do a random derivation prefix/suffix again:
@@ -310,10 +311,10 @@ function ExportFunds({ localNetwork }: { localNetwork: 'main' | 'test' }) {
             const derivSuffix = randomBase64(8);
 
             //    call foreign getPublicKey to get a pubkey
-            const pubResp = await foreign.getPublicKey({
+            const pubResp = await wallet.getPublicKey({
                 protocolID: [2, '3241645161d8'],
                 keyID: `${derivPrefix} ${derivSuffix}`,
-                counterparty: localIdentityKey
+                counterparty: foreignIdentityKey
             });
             const foreignPubKey = pubResp.publicKey;
             const lockingScript = buildLockingScriptFromPubKey(foreignPubKey);
@@ -326,7 +327,7 @@ function ExportFunds({ localNetwork }: { localNetwork: 'main' | 'test' }) {
                         lockingScript,
                         satoshis: amount,
                         outputDescription: 'Funds for foreign wallet',
-                        customInstructions: JSON.stringify({ prefix: derivPrefix, suffix: derivSuffix, counterparty: localIdentityKey, type: 'BRC29' })
+                        customInstructions: JSON.stringify({ prefix: derivPrefix, suffix: derivSuffix, counterparty: foreignIdentityKey, type: 'BRC29' })
                     }
                 ],
                 options: {
