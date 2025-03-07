@@ -48,7 +48,6 @@ export default function ImportExportPage() {
             if (!wallet) return;
             try {
                 const netRes = await wallet.getNetwork({});
-                // netRes.network is "mainnet" or "testnet"
                 setLocalNetwork(netRes.network === 'mainnet' ? 'main' : 'test');
             } catch (err) {
                 console.error('Error loading local network:', err);
@@ -59,7 +58,7 @@ export default function ImportExportPage() {
     return (
         <Box>
             <Typography variant="h4" sx={{ mb: 2 }}>
-                Import / Export to Key
+                Import / Export Funds
             </Typography>
             {!localNetwork && (
                 <Typography>Loading local wallet info (network) ...</Typography>
@@ -85,7 +84,7 @@ export default function ImportExportPage() {
  *******************************************************/
 function ImportFunds({ localNetwork }: { localNetwork: 'main' | 'test' }) {
     const { wallet } = useWallet();
-    const [foreignNet, setForeignNet] = useState<'main' | 'test'>('test');
+    const [foreignNet, setForeignNet] = useState<'main' | 'test' | 'local'>(localNetwork);
     const [foreignPrivKey, setForeignPrivKey] = useState('');
     const [foreignStorage, setForeignStorage] = useState('');
     const [amount, setAmount] = useState<number>(0);
@@ -102,24 +101,36 @@ function ImportFunds({ localNetwork }: { localNetwork: 'main' | 'test' }) {
             setError('No local wallet available.');
             return;
         }
-        if (foreignNet !== localNetwork) {
-            setError(`Network mismatch. Local is ${localNetwork}, foreign is ${foreignNet}`);
-            return;
-        }
-        if (!foreignPrivKey || !foreignStorage) {
-            setError('Must provide foreign private key and storage URL.');
-            return;
+        if (foreignNet !== 'local') {
+            if (!foreignPrivKey || !foreignStorage) {
+                setError('Must provide foreign private key and storage URL.');
+                return;
+            }
         }
         if (amount <= 0) {
             setError('Amount must be positive.');
             return;
         }
         setLoading(true);
-        const foreignIdentityKey = new PrivateKey(foreignPrivKey, 'hex').toPublicKey().toString();
         const { publicKey: localIdentityKey } = await wallet.getPublicKey({ identityKey: true });
         try {
             // 1) build foreign wallet:
             const foreign = await makeWallet(foreignNet, foreignPrivKey.trim(), foreignStorage.trim());
+
+            const { network: realForeignNet } = await foreign.getNetwork({})
+
+            if (realForeignNet !== `${localNetwork}net`) {
+                setError(`Network mismatch. Local is ${localNetwork}net, foreign is ${realForeignNet}`);
+                return;
+            }
+
+            let foreignIdentityKey: string
+            if (foreignNet !== 'local') {
+                foreignIdentityKey = new PrivateKey(foreignPrivKey, 'hex').toPublicKey().toString();
+            } else {
+                const { publicKey } = await foreign.getPublicKey({ identityKey: true })
+                foreignIdentityKey = publicKey
+            }
 
             // 2) Derive a "wallet payment" public key from our local wallet
             //    a) generate derivation prefix/suffix (random base64)
@@ -130,7 +141,8 @@ function ImportFunds({ localNetwork }: { localNetwork: 'main' | 'test' }) {
             const pubResp = await wallet.getPublicKey({
                 protocolID: [2, '3241645161d8'],
                 keyID: `${derivPrefix} ${derivSuffix}`,
-                counterparty: foreignIdentityKey
+                counterparty: foreignIdentityKey,
+                forSelf: true
             });
             const localPubKey = pubResp.publicKey;
 
@@ -145,9 +157,18 @@ function ImportFunds({ localNetwork }: { localNetwork: 'main' | 'test' }) {
                     {
                         lockingScript,
                         satoshis: amount,
-                        outputDescription: 'ImportFlow'
+                        outputDescription: 'ImportFlow',
+                        customInstructions: JSON.stringify({ // Internal record-keeping of who was paid
+                            type: 'BRC29',
+                            derivationPrefix: derivPrefix,
+                            derivationSuffix: derivSuffix,
+                            payee: localIdentityKey
+                        })
                     }
-                ]
+                ],
+                options: {
+                    randomizeOutputs: false
+                }
             });
             // check if createResp has a signableTransaction? If so, sign it, etc.
             // We'll assume it's all done. We get a final tx + txid in createResp.
@@ -174,7 +195,7 @@ function ImportFunds({ localNetwork }: { localNetwork: 'main' | 'test' }) {
                         paymentRemittance: {
                             derivationPrefix: derivPrefix,
                             derivationSuffix: derivSuffix,
-                            senderIdentityKey: localIdentityKey
+                            senderIdentityKey: foreignIdentityKey
                         }
                     }
                 ],
@@ -193,7 +214,7 @@ function ImportFunds({ localNetwork }: { localNetwork: 'main' | 'test' }) {
 
     return (
         <Box sx={{ mt: 2 }}>
-            <Typography variant="h6">Import Funds Into Local Wallet</Typography>
+            <Typography variant="h6">Import Funds Into This Wallet</Typography>
             <Stack spacing={2} sx={{ mt: 2 }}>
                 {error && <Alert severity="error">{error}</Alert>}
 
@@ -205,24 +226,29 @@ function ImportFunds({ localNetwork }: { localNetwork: 'main' | 'test' }) {
                         onChange={(e) => setForeignNet(e.target.value as 'main' | 'test')}
                         disabled={loading}
                     >
-                        <MenuItem value="main">Mainnet</MenuItem>
-                        <MenuItem value="test">Testnet</MenuItem>
+                        <MenuItem disabled={localNetwork === 'test'} value="main">{localNetwork === 'main' ? 'Mainnet' : 'Mainnet (disabled, this wallet is on testnet)'}</MenuItem>
+                        <MenuItem disabled={localNetwork === 'main'} value="test">{localNetwork === 'test' ? 'Testnet' : 'Testnet (disabled, this wallet is on mainnet)'}</MenuItem>
+                        <MenuItem value='local'>Use the local machine's wallet</MenuItem>
                     </Select>
                 </FormControl>
 
-                <TextField
-                    label="Foreign Wallet Private Key (Hex)"
-                    value={foreignPrivKey}
-                    onChange={(e) => setForeignPrivKey(e.target.value)}
-                    disabled={loading}
-                />
+                {foreignNet !== 'local' && (
+                    <>
+                        <TextField
+                            label="Foreign Wallet Private Key (Hex)"
+                            value={foreignPrivKey}
+                            onChange={(e) => setForeignPrivKey(e.target.value)}
+                            disabled={loading}
+                        />
 
-                <TextField
-                    label="Foreign Wallet Storage URL"
-                    value={foreignStorage}
-                    onChange={(e) => setForeignStorage(e.target.value)}
-                    disabled={loading}
-                />
+                        <TextField
+                            label="Foreign Wallet Storage URL"
+                            value={foreignStorage}
+                            onChange={(e) => setForeignStorage(e.target.value)}
+                            disabled={loading}
+                        />
+                    </>
+                )}
 
                 <TextField
                     label="Amount (Satoshis)"
@@ -236,7 +262,7 @@ function ImportFunds({ localNetwork }: { localNetwork: 'main' | 'test' }) {
                     <Button
                         variant="contained"
                         onClick={handleImport}
-                        disabled={loading || !foreignPrivKey || !foreignStorage || !amount}
+                        disabled={loading || foreignNet === 'local' ? !amount : (!foreignPrivKey || !foreignStorage || !amount)}
                     >
                         {loading ? <CircularProgress size={18} /> : 'Import'}
                     </Button>
@@ -246,7 +272,7 @@ function ImportFunds({ localNetwork }: { localNetwork: 'main' | 'test' }) {
             <Dialog open={successDialogOpen} onClose={() => setSuccessDialogOpen(false)} maxWidth="md">
                 <DialogTitle>Import Successful</DialogTitle>
                 <DialogContent>
-                    <Typography>Successfully imported funds to local wallet.</Typography>
+                    <Typography>Successfully imported funds to this wallet.</Typography>
                     {resultInfo && (
                         <Box sx={{ mt: 2, background: '#f5f5f5', p: 1, maxHeight: 400, overflow: 'auto' }}>
                             <pre style={{ margin: 0 }}>{JSON.stringify(resultInfo, null, 2)}</pre>
@@ -269,7 +295,7 @@ function ImportFunds({ localNetwork }: { localNetwork: 'main' | 'test' }) {
  *******************************************************/
 function ExportFunds({ localNetwork }: { localNetwork: 'main' | 'test' }) {
     const { wallet } = useWallet();
-    const [foreignNet, setForeignNet] = useState<'main' | 'test'>('test');
+    const [foreignNet, setForeignNet] = useState<'main' | 'test' | 'local'>(localNetwork);
     const [foreignPrivKey, setForeignPrivKey] = useState('');
     const [foreignStorage, setForeignStorage] = useState('');
     const [amount, setAmount] = useState<number>(0);
@@ -286,13 +312,11 @@ function ExportFunds({ localNetwork }: { localNetwork: 'main' | 'test' }) {
             setError('No local wallet available.');
             return;
         }
-        if (foreignNet !== localNetwork) {
-            setError(`Network mismatch. Local is ${localNetwork}, foreign is ${foreignNet}`);
-            return;
-        }
-        if (!foreignPrivKey || !foreignStorage) {
-            setError('Must provide foreign private key and storage URL.');
-            return;
+        if (foreignNet !== 'local') {
+            if (!foreignPrivKey || !foreignStorage) {
+                setError('Must provide foreign private key and storage URL.');
+                return;
+            }
         }
         if (amount <= 0) {
             setError('Amount must be positive.');
@@ -304,6 +328,13 @@ function ExportFunds({ localNetwork }: { localNetwork: 'main' | 'test' }) {
             // 1) build foreign wallet:
             const foreign = await makeWallet(foreignNet, foreignPrivKey.trim(), foreignStorage.trim());
             const { publicKey: foreignIdentityKey } = await foreign.getPublicKey({ identityKey: true });
+
+            const { network: realForeignNet } = await foreign.getNetwork({})
+
+            if (realForeignNet !== `${localNetwork}net`) {
+                setError(`Network mismatch. Local is ${localNetwork}net, foreign is ${realForeignNet}`);
+                return;
+            }
 
             // 2) Derive a "wallet payment" key from the foreign wallet (so we can pay them).
             //    Let's do a random derivation prefix/suffix again:
@@ -327,7 +358,12 @@ function ExportFunds({ localNetwork }: { localNetwork: 'main' | 'test' }) {
                         lockingScript,
                         satoshis: amount,
                         outputDescription: 'Funds for foreign wallet',
-                        customInstructions: JSON.stringify({ prefix: derivPrefix, suffix: derivSuffix, counterparty: foreignIdentityKey, type: 'BRC29' })
+                        customInstructions: JSON.stringify({ // Internal record-keeping of who was paid
+                            type: 'BRC29',
+                            derivationPrefix: derivPrefix,
+                            derivationSuffix: derivSuffix,
+                            payee: foreignIdentityKey
+                        })
                     }
                 ],
                 options: {
@@ -372,7 +408,7 @@ function ExportFunds({ localNetwork }: { localNetwork: 'main' | 'test' }) {
 
     return (
         <Box sx={{ mt: 2 }}>
-            <Typography variant="h6">Export Funds From Local Wallet</Typography>
+            <Typography variant="h6">Export Funds From This Wallet</Typography>
             <Stack spacing={2} sx={{ mt: 2 }}>
                 {error && <Alert severity="error">{error}</Alert>}
 
@@ -384,24 +420,29 @@ function ExportFunds({ localNetwork }: { localNetwork: 'main' | 'test' }) {
                         onChange={(e) => setForeignNet(e.target.value as 'main' | 'test')}
                         disabled={loading}
                     >
-                        <MenuItem value="main">Mainnet</MenuItem>
-                        <MenuItem value="test">Testnet</MenuItem>
+                        <MenuItem disabled={localNetwork === 'test'} value="main">{localNetwork === 'main' ? 'Mainnet' : 'Mainnet (disabled, this wallet is on testnet)'}</MenuItem>
+                        <MenuItem disabled={localNetwork === 'main'} value="test">{localNetwork === 'test' ? 'Testnet' : 'Testnet (disabled, this wallet is on mainnet)'}</MenuItem>
+                        <MenuItem value='local'>Use the local machine's wallet</MenuItem>
                     </Select>
                 </FormControl>
 
-                <TextField
-                    label="Foreign Wallet Private Key (Hex)"
-                    value={foreignPrivKey}
-                    onChange={(e) => setForeignPrivKey(e.target.value)}
-                    disabled={loading}
-                />
+                {foreignNet !== 'local' && (
+                    <>
+                        <TextField
+                            label="Foreign Wallet Private Key (Hex)"
+                            value={foreignPrivKey}
+                            onChange={(e) => setForeignPrivKey(e.target.value)}
+                            disabled={loading}
+                        />
 
-                <TextField
-                    label="Foreign Wallet Storage URL"
-                    value={foreignStorage}
-                    onChange={(e) => setForeignStorage(e.target.value)}
-                    disabled={loading}
-                />
+                        <TextField
+                            label="Foreign Wallet Storage URL"
+                            value={foreignStorage}
+                            onChange={(e) => setForeignStorage(e.target.value)}
+                            disabled={loading}
+                        />
+                    </>
+                )}
 
                 <TextField
                     label="Amount (Satoshis)"
@@ -415,7 +456,7 @@ function ExportFunds({ localNetwork }: { localNetwork: 'main' | 'test' }) {
                     <Button
                         variant="contained"
                         onClick={handleExport}
-                        disabled={loading || !foreignPrivKey || !foreignStorage || !amount}
+                        disabled={loading || foreignNet === 'local' ? !amount : (!foreignPrivKey || !foreignStorage || !amount)}
                     >
                         {loading ? <CircularProgress size={18} /> : 'Export'}
                     </Button>

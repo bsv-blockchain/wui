@@ -132,7 +132,7 @@ function MainLayout() {
             path: '/certificates'
         },
         {
-            label: 'Import & Export to Key',
+            label: 'Import & Export Funds',
             icon: <SettingsIcon />,
             subtitle: 'Move sats in and out of this wallet',
             path: '/import-export'
