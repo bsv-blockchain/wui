@@ -142,6 +142,12 @@ function MainLayout() {
             icon: <SettingsIcon />,
             subtitle: 'Height, network, version, etc.',
             path: '/utilities'
+        },
+        {
+            label: 'Data',
+            icon: <SettingsIcon />,
+            subtitle: 'Data management & storage',
+            path: '/data'
         }
     ];
 

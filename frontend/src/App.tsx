@@ -16,6 +16,7 @@ import IdentityResolutionPage from './pages/IdentityResolutionPage';
 import CertificatesPage from './pages/CertificatesPage';
 import ImportExportPage from './pages/ImportExportPage';
 import UtilitiesPage from './pages/UtilitiesPage';
+import DataPage from './pages/DataPage';
 
 import MainLayout from './components/MainLayout';
 import { WalletProvider, useWallet } from './contexts/WalletContext';
@@ -65,6 +66,7 @@ function AppContent() {
                 <Route path="/certificates" element={<CertificatesPage />} />
                 <Route path="/import-export" element={<ImportExportPage />} />
                 <Route path="/utilities" element={<UtilitiesPage />} />
+                <Route path="/data" element={<DataPage />} />
             </Route>
 
             <Route path="*" element={<Navigate to="/" />} />
