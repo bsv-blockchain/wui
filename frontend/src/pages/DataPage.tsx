@@ -99,7 +99,7 @@ function DataPage() {
   }, [wallet]);
 
   /**************************************************
-   * Fetch / list actions
+   * Fetch / list storage providers
    **************************************************/
   async function fetchStores() {
     if (!wallet) return;
