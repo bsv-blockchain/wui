@@ -20,7 +20,7 @@ function UtilitiesPage() {
     const [versionResult, setVersionResult] = useState('');
     const [basketName, setBasketName] = useState<string>('default');
     const [basketResult, setBasketResult] = useState('');
-
+    const [privateKey, setPrivateKey] = useState<string>('');
     const handleCheckAuth = async () => {
         if (!wallet) return;
         try {
@@ -92,6 +92,17 @@ function UtilitiesPage() {
         }
     };
 
+    const handleGetPrivateKey = async () => {
+        if (!wallet) return;
+        try {
+            const resp = await wallet.getPublicKey({ identityKey: true });
+            setPrivateKey(resp.publicKey);
+        } catch (err) {
+            console.error(err);
+        }
+    }
+
+
     return (
         <Box>
             <Typography variant="h4" gutterBottom>Utilities</Typography>
@@ -156,6 +167,14 @@ function UtilitiesPage() {
                         Get Version
                     </Button>
                     <Typography>Result: {versionResult}</Typography>
+                </Stack>
+            </Paper>
+            <Paper sx={{ p: 2 }}>
+                <Stack direction="row" spacing={2} alignItems="center">
+                    <Button variant="contained" onClick={handleGetPrivateKey}>
+                        Get Private Key
+                    </Button>
+                    <Typography>Result: {privateKey}</Typography>
                 </Stack>
             </Paper>
         </Box>
