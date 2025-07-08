@@ -8,6 +8,7 @@ import {
     Button
 } from '@mui/material';
 import { useWallet } from '../contexts/WalletContext';
+import { getActiveConfigId, getConfigById } from '../utils/configStorage';
 
 function UtilitiesPage() {
     const { wallet } = useWallet();
@@ -93,12 +94,21 @@ function UtilitiesPage() {
     };
 
     const handleGetPrivateKey = async () => {
-        if (!wallet) return;
         try {
-            const resp = await wallet.getPublicKey({ identityKey: true });
-            setPrivateKey(resp.publicKey);
+            const activeConfigId = getActiveConfigId();
+            if (!activeConfigId) {
+                setPrivateKey('No active config found');
+                return;
+            }
+            const config = getConfigById(activeConfigId);
+            if (!config) {
+                setPrivateKey('Active config not found in storage');
+                return;
+            }
+            setPrivateKey(config.privateKey);
         } catch (err) {
             console.error(err);
+            setPrivateKey('Error retrieving private key');
         }
     }
 
