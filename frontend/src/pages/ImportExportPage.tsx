@@ -20,6 +20,7 @@ import {
     DialogActions
 } from '@mui/material';
 import { CreateActionArgs, InternalizeActionArgs, P2PKH, PrivateKey, PublicKey } from '@bsv/sdk';
+import { PeerPayClient } from '@bsv/message-box-client';
 
 import { useWallet } from '../contexts/WalletContext';
 import makeWallet from '../utils/makeWallet';
@@ -295,8 +296,8 @@ function ImportFunds({ localNetwork }: { localNetwork: 'main' | 'test' }) {
  *******************************************************/
 function ExportFunds({ localNetwork }: { localNetwork: 'main' | 'test' }) {
     const { wallet } = useWallet();
-    const [foreignNet, setForeignNet] = useState<'main' | 'test' | 'local'>(localNetwork);
-    const [foreignPrivKey, setForeignPrivKey] = useState('');
+    const [foreignNet, setForeignNet] = useState<'main' | 'test' | 'local' | 'id'>(localNetwork);
+    const [foreignKey, setForeignKey] = useState('');
     const [foreignStorage, setForeignStorage] = useState('');
     const [amount, setAmount] = useState<number>(0);
 
@@ -312,9 +313,15 @@ function ExportFunds({ localNetwork }: { localNetwork: 'main' | 'test' }) {
             setError('No local wallet available.');
             return;
         }
-        if (foreignNet !== 'local') {
-            if (!foreignPrivKey || !foreignStorage) {
+        if (foreignNet === 'main' || foreignNet === 'test') {
+            if (!foreignKey || !foreignStorage) {
                 setError('Must provide foreign private key and storage URL.');
+                return;
+            }
+        }
+        if (foreignNet === 'id') {
+            if (!foreignKey) {
+                setError('Must provide identity key.');
                 return;
             }
         }
@@ -323,86 +330,112 @@ function ExportFunds({ localNetwork }: { localNetwork: 'main' | 'test' }) {
             return;
         }
         setLoading(true);
-        const { publicKey: localIdentityKey } = await wallet.getPublicKey({ identityKey: true });
-        try {
-            // 1) build foreign wallet:
-            const foreign = await makeWallet(foreignNet, foreignPrivKey.trim(), foreignStorage.trim());
-            const { publicKey: foreignIdentityKey } = await foreign.getPublicKey({ identityKey: true });
+        if (foreignNet !== 'id') {
+            const { publicKey: localIdentityKey } = await wallet.getPublicKey({ identityKey: true });
+            try {
+                // 1) build foreign wallet:
+                const foreign = await makeWallet(foreignNet, foreignKey.trim(), foreignStorage.trim());
+                const { publicKey: foreignIdentityKey } = await foreign.getPublicKey({ identityKey: true });
 
-            const { network: realForeignNet } = await foreign.getNetwork({})
+                const { network: realForeignNet } = await foreign.getNetwork({})
 
-            if (realForeignNet !== `${localNetwork}net`) {
-                setError(`Network mismatch. Local is ${localNetwork}net, foreign is ${realForeignNet}`);
-                return;
-            }
-
-            // 2) Derive a "wallet payment" key from the foreign wallet (so we can pay them).
-            //    Let's do a random derivation prefix/suffix again:
-            const derivPrefix = randomBase64(8);
-            const derivSuffix = randomBase64(8);
-
-            //    call foreign getPublicKey to get a pubkey
-            const pubResp = await wallet.getPublicKey({
-                protocolID: [2, '3241645161d8'],
-                keyID: `${derivPrefix} ${derivSuffix}`,
-                counterparty: foreignIdentityKey
-            });
-            const foreignPubKey = pubResp.publicKey;
-            const lockingScript = buildLockingScriptFromPubKey(foreignPubKey);
-
-            // 3) We do a local createAction paying `amount` to that script
-            const args: CreateActionArgs = {
-                description: 'Export funds to foreign wallet',
-                outputs: [
-                    {
-                        lockingScript,
-                        satoshis: amount,
-                        outputDescription: 'Funds for foreign wallet',
-                        customInstructions: JSON.stringify({ // Internal record-keeping of who was paid
-                            type: 'BRC29',
-                            derivationPrefix: derivPrefix,
-                            derivationSuffix: derivSuffix,
-                            payee: foreignIdentityKey
-                        })
-                    }
-                ],
-                options: {
-                    randomizeOutputs: false
+                if (realForeignNet !== `${localNetwork}net`) {
+                    setError(`Network mismatch. Local is ${localNetwork}net, foreign is ${realForeignNet}`);
+                    return;
                 }
-            }
-            const createResp = await wallet.createAction(args);
-            // parse out the final transaction from createResp
-            const atomicBEEF = createResp.tx as number[]
-            if (!atomicBEEF.length) {
-                throw new Error('No final transaction data from local createAction.');
-            }
 
-            // 4) We then "internalize" that transaction on the foreign wallet.
-            //    In a typical flow, foreign might do so automatically, or we do it here
-            //    since user has foreign's private key as well.
-            const iargs: InternalizeActionArgs = {
-                tx: atomicBEEF,
-                outputs: [
-                    {
-                        outputIndex: 0,
-                        protocol: 'wallet payment',
-                        paymentRemittance: {
-                            derivationPrefix: derivPrefix,
-                            derivationSuffix: derivSuffix,
-                            senderIdentityKey: localIdentityKey,
+                // 2) Derive a "wallet payment" key from the foreign wallet (so we can pay them).
+                //    Let's do a random derivation prefix/suffix again:
+                const derivPrefix = randomBase64(8);
+                const derivSuffix = randomBase64(8);
+
+                //    call foreign getPublicKey to get a pubkey
+                const pubResp = await wallet.getPublicKey({
+                    protocolID: [2, '3241645161d8'],
+                    keyID: `${derivPrefix} ${derivSuffix}`,
+                    counterparty: foreignIdentityKey
+                });
+                const foreignPubKey = pubResp.publicKey;
+                const lockingScript = buildLockingScriptFromPubKey(foreignPubKey);
+
+                // 3) We do a local createAction paying `amount` to that script
+                const args: CreateActionArgs = {
+                    description: 'Export funds to foreign wallet',
+                    outputs: [
+                        {
+                            lockingScript,
+                            satoshis: amount,
+                            outputDescription: 'Funds for foreign wallet',
+                            customInstructions: JSON.stringify({ // Internal record-keeping of who was paid
+                                type: 'BRC29',
+                                derivationPrefix: derivPrefix,
+                                derivationSuffix: derivSuffix,
+                                payee: foreignIdentityKey
+                            })
                         }
+                    ],
+                    options: {
+                        randomizeOutputs: false
                     }
-                ],
-                description: 'Internalizing export funds tx into foreign wallet'
-            }
-            const intResp = await foreign.internalizeAction(iargs);
+                }
+                const createResp = await wallet.createAction(args);
+                // parse out the final transaction from createResp
+                const atomicBEEF = createResp.tx as number[]
+                if (!atomicBEEF.length) {
+                    throw new Error('No final transaction data from local createAction.');
+                }
 
-            setResultInfo({ createResp, intResp });
-            setSuccessDialogOpen(true);
-        } catch (err: any) {
-            setError(err?.message || String(err));
-        } finally {
-            setLoading(false);
+                // 4) We then "internalize" that transaction on the foreign wallet.
+                //    In a typical flow, foreign might do so automatically, or we do it here
+                //    since user has foreign's private key as well.
+                const iargs: InternalizeActionArgs = {
+                    tx: atomicBEEF,
+                    outputs: [
+                        {
+                            outputIndex: 0,
+                            protocol: 'wallet payment',
+                            paymentRemittance: {
+                                derivationPrefix: derivPrefix,
+                                derivationSuffix: derivSuffix,
+                                senderIdentityKey: localIdentityKey,
+                            }
+                        }
+                    ],
+                    description: 'Internalizing export funds tx into foreign wallet'
+                }
+                const intResp = await foreign.internalizeAction(iargs);
+
+                setResultInfo({ createResp, intResp });
+                setSuccessDialogOpen(true);
+            } catch (err: any) {
+                setError(err?.message || String(err));
+            } finally {
+                setLoading(false);
+            }
+        } else {
+            const { publicKey: localIdentityKey } = await wallet.getPublicKey({ identityKey: true })
+            const p = new PeerPayClient({
+                walletClient: wallet as any
+            })
+            const token = await p.createPaymentToken({
+                recipient: foreignKey,
+                amount
+            })
+            const info: InternalizeActionArgs = {
+                tx: token.transaction,
+                outputs: [{
+                    outputIndex: 0,
+                    protocol: 'wallet payment',
+                    paymentRemittance: {
+                        senderIdentityKey: localIdentityKey,
+                        derivationPrefix: token.customInstructions.derivationPrefix,
+                        derivationSuffix: token.customInstructions.derivationSuffix
+                    }
+                }],
+                description: 'Payment made with WUI'
+            }
+            setResultInfo(info)
+            setSuccessDialogOpen(true)
         }
     }
 
@@ -423,24 +456,28 @@ function ExportFunds({ localNetwork }: { localNetwork: 'main' | 'test' }) {
                         <MenuItem disabled={localNetwork === 'test'} value="main">{localNetwork === 'main' ? 'Mainnet' : 'Mainnet (disabled, this wallet is on testnet)'}</MenuItem>
                         <MenuItem disabled={localNetwork === 'main'} value="test">{localNetwork === 'test' ? 'Testnet' : 'Testnet (disabled, this wallet is on mainnet)'}</MenuItem>
                         <MenuItem value='local'>Use the local machine's wallet</MenuItem>
+                        <MenuItem value='id'>Pay to identity key (CAREFUL: manual P2P transfer only)</MenuItem>
                     </Select>
                 </FormControl>
 
                 {foreignNet !== 'local' && (
                     <>
                         <TextField
-                            label="Foreign Wallet Private Key (Hex)"
-                            value={foreignPrivKey}
-                            onChange={(e) => setForeignPrivKey(e.target.value)}
+                            label={foreignNet === 'id' ? "Pay To Identity Key" : "Foreign Wallet Private Key (Hex)"}
+                            value={foreignKey}
+                            onChange={(e) => setForeignKey(e.target.value)}
                             disabled={loading}
                         />
-
-                        <TextField
-                            label="Foreign Wallet Storage URL"
-                            value={foreignStorage}
-                            onChange={(e) => setForeignStorage(e.target.value)}
-                            disabled={loading}
-                        />
+                        {foreignNet === 'id' ? (
+                            <Typography>You will receive the payment ONCE in the modal after it is sent. You MUST save it and hand-deliver it to the recipient. No delivery will be attempted through this system.</Typography>
+                        ) : (
+                            <TextField
+                                label="Foreign Wallet Storage URL"
+                                value={foreignStorage}
+                                onChange={(e) => setForeignStorage(e.target.value)}
+                                disabled={loading}
+                            />
+                        )}
                     </>
                 )}
 
@@ -456,7 +493,7 @@ function ExportFunds({ localNetwork }: { localNetwork: 'main' | 'test' }) {
                     <Button
                         variant="contained"
                         onClick={handleExport}
-                        disabled={loading || foreignNet === 'local' ? !amount : (!foreignPrivKey || !foreignStorage || !amount)}
+                        disabled={loading || foreignNet === 'local' ? !amount : foreignNet === 'id' ? (!amount || !foreignKey) :  (!foreignKey || !foreignStorage || !amount)}
                     >
                         {loading ? <CircularProgress size={18} /> : 'Export'}
                     </Button>
