@@ -168,7 +168,8 @@ function ImportFunds({ localNetwork }: { localNetwork: 'main' | 'test' }) {
                     }
                 ],
                 options: {
-                    randomizeOutputs: false
+                    randomizeOutputs: false,
+                    acceptDelayedBroadcast: false
                 }
             });
             // check if createResp has a signableTransaction? If so, sign it, etc.
@@ -375,7 +376,8 @@ function ExportFunds({ localNetwork }: { localNetwork: 'main' | 'test' }) {
                         }
                     ],
                     options: {
-                        randomizeOutputs: false
+                        randomizeOutputs: false,
+                        acceptDelayedBroadcast: false
                     }
                 }
                 const createResp = await wallet.createAction(args);
