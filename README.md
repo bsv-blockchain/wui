@@ -1,3 +1,13 @@
+# ⚠️ ARCHIVED
+
+**This repository has been archived.** Active development has moved to:
+
+**https://github.com/bsv-blockchain/ts-ui/tree/main/packages/wui**
+
+Please visit the new location for the latest code, issues, and documentation.
+
+---
+
 # BSV Project
 
 Standard BSV project structure.
